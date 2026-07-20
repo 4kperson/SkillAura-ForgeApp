@@ -37,7 +37,7 @@ class OnboardingScreen extends StatelessWidget {
               ),
               const Spacer(),
               FilledButton(
-                onPressed: () => context.go('/home'),
+                onPressed: () => context.go('/auth'),
                 child: const Text('Start building discipline'),
               ),
               const SizedBox(height: 12),

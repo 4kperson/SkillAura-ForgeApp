@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/theme/app_theme.dart';
 import '../features/home/presentation/home_screen.dart';
+import '../features/auth/presentation/auth_screen.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
 
 class ForgeApp extends StatelessWidget {
@@ -11,6 +12,11 @@ class ForgeApp extends StatelessWidget {
   static final GoRouter _router = GoRouter(
     initialLocation: '/onboarding',
     routes: <RouteBase>[
+      GoRoute(
+        path: '/auth',
+        builder: (BuildContext context, GoRouterState state) =>
+            const AuthScreen(),
+      ),
       GoRoute(
         path: '/onboarding',
         builder: (BuildContext context, GoRouterState state) =>
