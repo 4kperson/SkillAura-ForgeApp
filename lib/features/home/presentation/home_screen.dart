@@ -6,7 +6,9 @@ import '../../habits/domain/habit.dart';
 import '../../habits/presentation/habits_controller.dart';
 
 class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, required this.onSignOut});
+
+  final Future<void> Function() onSignOut;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,8 +24,9 @@ class HomeScreen extends ConsumerWidget {
         title: const Text('Today'),
         actions: <Widget>[
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.person_outline_rounded),
+            onPressed: onSignOut,
+            tooltip: 'Sign out',
+            icon: const Icon(Icons.logout_rounded),
           ),
         ],
       ),
