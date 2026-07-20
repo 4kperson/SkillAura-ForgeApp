@@ -13,6 +13,6 @@ void main() {
     await tester.tap(find.text('Start building discipline'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Return to the\nwork that matters.'), findsOneWidget);
   });
 }
