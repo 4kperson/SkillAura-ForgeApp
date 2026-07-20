@@ -12,9 +12,9 @@ class Habit {
   final bool isComplete;
 
   Habit copyWith({bool? isComplete}) => Habit(
-        id: id,
-        title: title,
-        xp: xp,
-        isComplete: isComplete ?? this.isComplete,
-      );
+    id: id,
+    title: title,
+    xp: xp,
+    isComplete: isComplete ?? this.isComplete,
+  );
 }

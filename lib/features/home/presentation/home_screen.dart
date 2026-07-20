@@ -45,12 +45,13 @@ class HomeScreen extends ConsumerWidget {
                         const SizedBox(height: 8),
                         Text(
                           '$earnedXp XP earned',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 8),
-                        Text('$completed of ${habits.length} commitments complete'),
+                        Text(
+                          '$completed of ${habits.length} commitments complete',
+                        ),
                       ],
                     ),
                   ),
@@ -61,9 +62,9 @@ class HomeScreen extends ConsumerWidget {
           const SizedBox(height: 28),
           Text(
             'Daily commitments',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 12),
           for (final Habit habit in habits) ...<Widget>[

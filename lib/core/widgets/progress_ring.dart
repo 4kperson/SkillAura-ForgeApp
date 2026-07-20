@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ProgressRing extends StatelessWidget {
-  const ProgressRing({
-    required this.progress,
-    required this.label,
-    super.key,
-  });
+  const ProgressRing({required this.progress, required this.label, super.key});
 
   final double progress;
   final String label;
@@ -29,8 +25,8 @@ class ProgressRing extends StatelessWidget {
               Text(
                 '${(progress * 100).round()}%',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               Text(label, style: Theme.of(context).textTheme.labelMedium),
             ],

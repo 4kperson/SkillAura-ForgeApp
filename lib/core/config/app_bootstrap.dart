@@ -1,7 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_env.dart';
@@ -11,7 +10,7 @@ abstract final class AppBootstrap {
     if (AppEnv.hasSupabaseConfig) {
       await Supabase.initialize(
         url: AppEnv.supabaseUrl,
-        anonKey: AppEnv.supabaseAnonKey,
+        publishableKey: AppEnv.supabaseAnonKey,
       );
     }
 
@@ -34,11 +33,7 @@ abstract final class AppBootstrap {
     }
 
     try {
-      await FirebaseCrashlytics.instance.recordError(
-        error,
-        stack,
-        fatal: true,
-      );
+      await FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     } catch (_) {
       // Avoid recursive failures while reporting an application crash.
     }

@@ -7,12 +7,9 @@ import 'app/app.dart';
 import 'core/config/app_bootstrap.dart';
 
 Future<void> main() async {
-  await runZonedGuarded(
-    () async {
-      WidgetsFlutterBinding.ensureInitialized();
-      await AppBootstrap.initialize();
-      runApp(const ProviderScope(child: ForgeApp()));
-    },
-    AppBootstrap.recordFatalError,
-  );
+  await runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await AppBootstrap.initialize();
+    runApp(const ProviderScope(child: ForgeApp()));
+  }, AppBootstrap.recordFatalError);
 }

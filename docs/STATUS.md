@@ -10,28 +10,32 @@ Status: complete locally on 2026-07-20.
   [`7b3392f`](https://github.com/4kperson/SkillAura-ForgeApp/commit/7b3392f).
 - Confirmed the starter includes source, tests, Supabase migration, CI workflow, and project documentation.
 
-## Validation blockers
+## Milestone: verified Flutter foundation
 
-Flutter is installed at `C:\Users\Brian\develop\flutter`, but the SDK command
-is currently blocked before it reports a version. This is an SDK-level lock or
-local toolchain issue, not an application finding. GitHub CLI is also not
-installed, though Git remote push is working. As a result, these checks have
-not yet been run:
+Status: complete locally on 2026-07-20.
 
-- `flutter create . --platforms=android,ios`
-- `flutter pub get`
-- `flutter analyze`
-- `flutter test`
+- Generated the Android and iOS Flutter host projects.
+- Set the Android namespace/application ID and iOS bundle ID to
+  `com.skillaura.forge`.
+- Replaced the deprecated Supabase initialization argument with
+  `publishableKey`.
+- Removed Flutter's generated sample test and retained the project-specific
+  widget and controller tests.
+- Ran `dart format --output=none --set-exit-if-changed lib test` successfully.
+- Ran `flutter analyze` successfully with no issues.
+- Ran `flutter test` successfully: 2 tests passed.
+- Built `build/app/outputs/flutter-apk/app-debug.apk` successfully.
 
 The local repository has a configured author identity and its `origin` remote
 tracks `https://github.com/4kperson/SkillAura-ForgeApp.git`.
 
 ## Next milestone
 
-Once the Flutter SDK lock is cleared, generate native projects, install
-dependencies, run the quality gate, resolve any findings, then commit and push
-the verified foundation.
+Implement email authentication against Supabase, including loading, validation,
+error, and signed-in states, with focused unit and widget tests.
 
 ## Supabase
 
-The app is prepared to receive `SUPABASE_URL` and `SUPABASE_ANON_KEY` through Dart defines. No secrets have been added to the repository.
+The app is prepared to receive `SUPABASE_URL` and `SUPABASE_ANON_KEY` through
+Dart defines. Local Supabase values are stored in the ignored `.env` file; no
+secrets have been added to the repository.

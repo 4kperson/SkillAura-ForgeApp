@@ -23,17 +23,17 @@ class OnboardingScreen extends StatelessWidget {
               Text(
                 'Become the person\nyou keep promising to be.',
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      height: 1.05,
-                    ),
+                  fontWeight: FontWeight.w900,
+                  height: 1.05,
+                ),
               ),
               const SizedBox(height: 20),
               Text(
                 'Build discipline through small daily commitments, visible progress, and momentum that compounds.',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      height: 1.5,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  height: 1.5,
+                ),
               ),
               const Spacer(),
               FilledButton(
