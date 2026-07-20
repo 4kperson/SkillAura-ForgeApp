@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/config/app_env.dart';
+import '../data/auth_error_mapper.dart';
 import '../data/auth_repository.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -45,6 +47,14 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _submitted = true);
     if (!_formKey.currentState!.validate()) return;
 
+    if (!AppEnv.hasSupabaseConfig) {
+      setState(() {
+        _message = AuthErrorMapper.missingConfigurationMessage;
+        _messageIsSuccess = false;
+      });
+      return;
+    }
+
     FocusScope.of(context).unfocus();
     setState(() {
       _isLoading = true;
@@ -72,10 +82,14 @@ class _AuthScreenState extends State<AuthScreen> {
       } else if (mounted) {
         context.go('/home');
       }
-    } on AuthException catch (error) {
-      setState(() => _message = error.message);
-    } catch (_) {
-      setState(() => _message = 'Something went wrong. Please try again.');
+    } catch (error, stackTrace) {
+      AuthErrorMapper.logSafely(error, stackTrace);
+      if (mounted) {
+        setState(() {
+          _message = AuthErrorMapper.messageFor(error);
+          _messageIsSuccess = false;
+        });
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
