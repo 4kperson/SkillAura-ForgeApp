@@ -1,0 +1,33 @@
+# Forge — SkillAura Apps
+
+Production-oriented starter for a discipline and habit-building mobile app targeting iOS and Android.
+
+## Included
+- Flutter feature-first architecture
+- Riverpod state management
+- GoRouter navigation
+- Dark violet design system
+- Runnable onboarding and daily commitments prototype
+- Supabase schema with row-level security
+- Firebase Crashlytics bootstrap hook
+- RevenueCat dependency placeholder
+- Unit/widget tests
+- GitHub Actions CI
+- Architecture, decisions, and testing documentation
+
+## Local setup
+1. Install the latest Flutter stable SDK.
+2. Run `flutter create . --platforms=android,ios` inside this folder to generate native platform projects.
+3. Run `flutter pub get`.
+4. Configure Supabase and pass environment values using `--dart-define`.
+5. Configure Firebase with FlutterFire CLI.
+6. Run `flutter test`, then `flutter run`.
+
+Example:
+```bash
+flutter run \
+  --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_KEY
+```
+
+Never commit production secrets. Supabase's publishable/anon key is designed for clients, while database protection must be enforced through RLS.
