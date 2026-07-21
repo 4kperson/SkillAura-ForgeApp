@@ -51,3 +51,14 @@ Status: complete locally on 2026-07-21.
 - Added a repository boundary with a Supabase implementation.
 - Added a database migration with constrained onboarding profile columns.
 - Added domain serialization, defaults, and plan-recommendation tests.
+
+## Milestone: premium onboarding experience
+
+Status: complete locally on 2026-07-21.
+
+- Replaced the placeholder with a seven-step emotional commitment journey.
+- Added goal and discipline personalization, native routine pickers, a tailored
+  starting plan, notification pre-permission education, and Day One completion.
+- Added restrained motion, semantic selection states, responsive layouts, and
+  compact-device overflow coverage.
+- Added controller tests for resume, progressive persistence, and completion.
