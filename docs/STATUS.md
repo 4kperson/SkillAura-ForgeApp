@@ -74,3 +74,10 @@ Status: complete locally on 2026-07-21.
   only after the benefit explanation.
 - Added integration coverage for loading, resume, permanent bypass,
   notification consent, completion persistence, and Home handoff.
+
+## Database repair
+
+The existing `public.profiles` table is preserved. Run
+`202607210002_repair_onboarding_profile.sql` in Supabase when applying the
+onboarding schema. It contains no drop, rename, recreate, truncate, or data
+deletion statements and can safely be rerun.

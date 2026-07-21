@@ -36,8 +36,10 @@ Never commit production secrets. Supabase's publishable/anon key is designed for
 
 Apply the SQL files in `supabase/migrations` to the connected Supabase project
 in filename order. Sprint 2 requires
-`202607210001_onboarding_profile.sql`; it adds the profile fields used to save
-answers, resume progress, notification preference, and permanent completion.
+`202607210002_repair_onboarding_profile.sql`; it adds the profile fields used to
+save answers, resume progress, notification preference, and permanent
+completion without recreating the existing `profiles` table. The migration
+also includes verification queries for columns, RLS, and owner policies.
 
 ## Mobile email confirmation
 
