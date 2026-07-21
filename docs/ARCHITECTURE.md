@@ -13,6 +13,14 @@
 2. Domain: entities and business rules.
 3. Data: repositories, Supabase data sources, local cache.
 
+## Onboarding persistence
+
+`OnboardingProfile` is the single domain model for answers, resume position,
+notification preference, and completion. Presentation code talks only to the
+`OnboardingRepository` interface. The Supabase implementation stores the model
+on the authenticated user's `profiles` row, protected by the existing owner-only
+row-level security policy.
+
 ## Branch policy
 - `main`: production-ready only.
 - `develop`: integration branch.

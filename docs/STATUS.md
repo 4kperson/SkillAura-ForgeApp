@@ -39,3 +39,15 @@ error, and signed-in states, with focused unit and widget tests.
 The app is prepared to receive `SUPABASE_URL` and `SUPABASE_ANON_KEY` through
 Dart defines. Local Supabase values are stored in the ignored `.env` file; no
 secrets have been added to the repository.
+
+# Sprint 2 Status
+
+## Milestone: onboarding persistence foundation
+
+Status: complete locally on 2026-07-21.
+
+- Added a typed onboarding profile covering goal, discipline level, routine,
+  resume step, notification preference, and completion.
+- Added a repository boundary with a Supabase implementation.
+- Added a database migration with constrained onboarding profile columns.
+- Added domain serialization, defaults, and plan-recommendation tests.
