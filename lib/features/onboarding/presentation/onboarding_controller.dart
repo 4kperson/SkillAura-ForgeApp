@@ -64,21 +64,31 @@ class OnboardingController extends ChangeNotifier {
     return _persist(_profile.copyWith(currentStep: step));
   }
 
-  Future<bool> setNotificationPreference(bool enabled) =>
-      _persist(_profile.copyWith(notificationsEnabled: enabled));
+  Future<bool> setNotificationPreference(NotificationPreference preference) =>
+      _persist(_profile.copyWith(notificationPreference: preference));
 
   Future<bool> complete() async {
-    final saved = await _persist(
-      _profile.copyWith(
-        currentStep: OnboardingProfile.totalSteps - 1,
-        isCompleted: true,
-      ),
+    if (isBusy) return false;
+    final completedProfile = _profile.copyWith(
+      currentStep: OnboardingProfile.totalSteps - 1,
+      isCompleted: true,
     );
-    if (saved) {
+    _status = OnboardingStatus.saving;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      await _repository.complete(completedProfile);
+      _profile = completedProfile;
       _status = OnboardingStatus.completed;
       notifyListeners();
+      return true;
+    } catch (_) {
+      _status = OnboardingStatus.failed;
+      _errorMessage =
+          'Day One is ready, but your plan was not saved. Check your connection and try again.';
+      notifyListeners();
+      return false;
     }
-    return saved;
   }
 
   void _update(OnboardingProfile profile) {

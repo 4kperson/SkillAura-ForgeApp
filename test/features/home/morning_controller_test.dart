@@ -46,6 +46,7 @@ void main() {
 
 MorningSnapshot _snapshot() => MorningSnapshot(
   displayName: 'Brian',
+  identityLabel: 'more disciplined',
   dayNumber: 12,
   totalXp: 200,
   currentStreak: 6,
@@ -57,7 +58,7 @@ MorningSnapshot _snapshot() => MorningSnapshot(
 class _MemoryMorningRepository implements MorningRepository {
   _MemoryMorningRepository(this.value, {this.shouldFail = false});
 
-  final MorningSnapshot value;
+  MorningSnapshot value;
   final bool shouldFail;
   String? lastHabitId;
   bool? lastCompletion;
@@ -74,5 +75,13 @@ class _MemoryMorningRepository implements MorningRepository {
     if (shouldFail) throw Exception('offline');
     lastHabitId = habitId;
     lastCompletion = isComplete;
+    final index = value.habits.indexWhere((habit) => habit.id == habitId);
+    final habit = value.habits[index];
+    final habits = [...value.habits]
+      ..[index] = habit.copyWith(isComplete: isComplete);
+    value = value.copyWith(
+      habits: habits,
+      totalXp: value.totalXp + (isComplete ? habit.xp : -habit.xp),
+    );
   }
 }

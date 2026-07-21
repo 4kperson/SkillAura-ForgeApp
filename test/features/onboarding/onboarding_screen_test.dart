@@ -119,6 +119,42 @@ void main() {
     expect(find.text('Your first promise\nis waiting.'), findsOneWidget);
   });
 
+  testWidgets('denied notifications are acknowledged before continuing', (
+    tester,
+  ) async {
+    final repository = _MemoryOnboardingRepository(
+      const OnboardingProfile(currentStep: 5),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: OnboardingScreen(
+          repository: repository,
+          notificationPermissionRequester: () async => false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Keep me on track'));
+    await tester.pumpAndSettle();
+
+    expect(
+      repository.value.notificationPreference,
+      NotificationPreference.denied,
+    );
+    expect(repository.value.currentStep, 5);
+    expect(find.text('CHOICE RESPECTED'), findsOneWidget);
+    expect(find.text('Continue without reminders'), findsOneWidget);
+    expect(find.textContaining('inside the app instead'), findsNothing);
+
+    await tester.tap(find.text('Continue without reminders'));
+    await tester.pumpAndSettle();
+
+    expect(repository.value.currentStep, 6);
+    expect(find.text('Your first promise\nis waiting.'), findsOneWidget);
+  });
+
   testWidgets('Start Day One persists completion before handoff', (
     tester,
   ) async {
@@ -150,4 +186,7 @@ class _MemoryOnboardingRepository implements OnboardingRepository {
 
   @override
   Future<void> save(OnboardingProfile profile) async => value = profile;
+
+  @override
+  Future<void> complete(OnboardingProfile profile) async => value = profile;
 }

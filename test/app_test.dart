@@ -40,7 +40,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Daily commitments'), findsOneWidget);
+    expect(find.text('Make today count.'), findsOneWidget);
   });
 
   testWidgets('authenticated confirmation callback resolves to home', (
@@ -63,7 +63,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Daily commitments'), findsOneWidget);
+    expect(find.text('Make today count.'), findsOneWidget);
   });
 
   testWidgets('shows a splash while the stored session is resolving', (
@@ -109,7 +109,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Return to the\nwork that matters.'), findsOneWidget);
-    expect(find.text('Daily commitments'), findsNothing);
+    expect(find.text('Make today count.'), findsNothing);
   });
 
   testWidgets('sign out returns the user to authentication', (tester) async {
@@ -162,7 +162,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
 
     expect(find.text('This plan was built\naround you.'), findsOneWidget);
-    expect(find.text('Daily commitments'), findsNothing);
+    expect(find.text('Make today count.'), findsNothing);
   });
 
   testWidgets('completed users never see onboarding again', (tester) async {
@@ -186,9 +186,68 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Daily commitments'), findsOneWidget);
+    expect(find.text('Make today count.'), findsOneWidget);
     expect(find.text('You already took\nthe hardest step.'), findsNothing);
   });
+
+  testWidgets(
+    'complete onboarding then logout and login restores Home permanently',
+    (tester) async {
+      final source = _FakeSessionSource(signedIn: true);
+      final controller = SessionController(source);
+      final onboarding = _FakeOnboardingRepository(const OnboardingProfile());
+      addTearDown(() async {
+        controller.dispose();
+        await source.dispose();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: ForgeApp(
+            sessionController: controller,
+            onboardingRepository: onboarding,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
+
+      Future<void> advance(String label) async {
+        final target = find.text(label);
+        await tester.ensureVisible(target);
+        await tester.tap(target);
+        await tester.pumpAndSettle();
+      }
+
+      await advance('Make the commitment');
+      await advance('Build discipline');
+      await advance('Shape my path');
+      await advance('Beginner');
+      await advance('Set my starting standard');
+      await advance('Build around my rhythm');
+      await advance('Commit to this Day One');
+      await advance('Not now');
+      await advance('Start Day One');
+
+      expect(onboarding.value.isCompleted, isTrue);
+      expect(onboarding.completeCalls, 1);
+      expect(onboarding.value.goals, [OnboardingGoal.disciplined]);
+      expect(onboarding.value.disciplineLevel, DisciplineLevel.starting);
+      expect(onboarding.value.recommendedHabits, hasLength(3));
+      expect(find.text('Make today count.'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Sign out'));
+      await tester.pumpAndSettle();
+      expect(find.text('Return to the\nwork that matters.'), findsOneWidget);
+
+      source.signIn();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Make today count.'), findsOneWidget);
+      expect(find.text('You already took\nthe hardest step.'), findsNothing);
+    },
+  );
 
   testWidgets('holds splash until onboarding status resolves', (tester) async {
     final source = _FakeSessionSource(signedIn: true);
@@ -213,12 +272,41 @@ void main() {
     );
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text('Daily commitments'), findsNothing);
+    expect(find.text('Make today count.'), findsNothing);
 
     profile.complete(const OnboardingProfile());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
     expect(find.text('You already took\nthe hardest step.'), findsOneWidget);
+  });
+
+  testWidgets('profile load failure never restarts onboarding', (tester) async {
+    final source = _FakeSessionSource(signedIn: true);
+    final controller = SessionController(source);
+    final onboarding = _FakeOnboardingRepository(
+      const OnboardingProfile(),
+      loadCallback: () async => throw Exception('offline'),
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await source.dispose();
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: ForgeApp(
+          sessionController: controller,
+          onboardingRepository: onboarding,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(find.text('Your journey is safe.'), findsOneWidget);
+    expect(find.text('You already took\nthe hardest step.'), findsNothing);
+    expect(find.text('Make today count.'), findsNothing);
   });
 }
 
@@ -245,6 +333,11 @@ class _FakeSessionSource implements SessionSource {
     _changes.add(false);
   }
 
+  void signIn() {
+    signedIn = true;
+    _changes.add(true);
+  }
+
   Future<void> dispose() => _changes.close();
 }
 
@@ -253,6 +346,7 @@ class _FakeOnboardingRepository implements OnboardingRepository {
 
   OnboardingProfile value;
   final Future<OnboardingProfile> Function()? loadCallback;
+  int completeCalls = 0;
 
   @override
   Future<OnboardingProfile> load() async =>
@@ -260,4 +354,10 @@ class _FakeOnboardingRepository implements OnboardingRepository {
 
   @override
   Future<void> save(OnboardingProfile profile) async => value = profile;
+
+  @override
+  Future<void> complete(OnboardingProfile profile) async {
+    completeCalls++;
+    value = profile;
+  }
 }

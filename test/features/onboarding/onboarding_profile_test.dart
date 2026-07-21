@@ -23,12 +23,27 @@ void main() {
     expect(profile.sleepTimeMinutes, 1365);
     expect(profile.currentStep, 4);
     expect(profile.notificationsEnabled, isTrue);
+    expect(profile.notificationPreference, NotificationPreference.granted);
     expect(profile.toJson()['onboarding_goals'], [
       'healthier',
       'productive',
       'betterSleep',
     ]);
     expect(profile.toJson()['wake_time'], '06:30:00');
+  });
+
+  test('persists distinct denied and skipped notification states', () {
+    const denied = OnboardingProfile(
+      notificationPreference: NotificationPreference.denied,
+    );
+    const skipped = OnboardingProfile(
+      notificationPreference: NotificationPreference.skipped,
+    );
+
+    expect(denied.toJson()['notification_permission_state'], 'denied');
+    expect(denied.toJson()['notifications_enabled'], isFalse);
+    expect(skipped.toJson()['notification_permission_state'], 'skipped');
+    expect(skipped.toJson()['notifications_enabled'], isFalse);
   });
 
   test('keeps legacy single-goal profiles compatible', () {
@@ -73,6 +88,24 @@ void main() {
       greaterThan(beginner.recommendedHabits.first.effortMinutes),
     );
     expect(advanced.startingXpTarget, greaterThan(beginner.startingXpTarget));
+  });
+
+  test('starter plan serializes as three server-ready habits', () {
+    const profile = OnboardingProfile(
+      goals: [OnboardingGoal.productive, OnboardingGoal.betterSleep],
+      disciplineLevel: DisciplineLevel.improving,
+      wakeTimeMinutes: 420,
+      sleepTimeMinutes: 1380,
+    );
+
+    final plan = profile.recommendedHabits
+        .map((habit) => habit.toJson())
+        .toList();
+    expect(plan, hasLength(3));
+    expect(plan.first['source_key'], 'focus');
+    expect(plan.first['scheduled_time'], '08:30:00');
+    expect(plan.first['xp_reward'], greaterThan(0));
+    expect(plan.first['effort_minutes'], greaterThan(0));
   });
 
   test('uses safe defaults for a new or partially persisted profile', () {

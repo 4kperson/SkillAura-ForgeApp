@@ -7,6 +7,7 @@ import '../core/theme/app_theme.dart';
 import '../features/auth/presentation/auth_screen.dart';
 import '../features/auth/presentation/session_controller.dart';
 import '../features/home/presentation/home_screen.dart';
+import '../features/home/data/morning_repository.dart';
 import '../features/onboarding/data/notification_permission_service.dart';
 import '../features/onboarding/data/onboarding_repository.dart';
 import '../features/onboarding/domain/onboarding_profile.dart';
@@ -19,12 +20,14 @@ class ForgeApp extends StatefulWidget {
     this.sessionController,
     this.onboardingRepository,
     this.onboardingGateController,
+    this.morningRepository,
     this.initialLocation = '/splash',
   });
 
   final SessionController? sessionController;
   final OnboardingRepository? onboardingRepository;
   final OnboardingGateController? onboardingGateController;
+  final MorningRepository? morningRepository;
   final String initialLocation;
 
   @override
@@ -36,6 +39,7 @@ class _ForgeAppState extends State<ForgeApp> {
   late final bool _ownsSession;
   late final OnboardingRepository _onboardingRepository;
   late final OnboardingGateController _onboardingGate;
+  late final MorningRepository _morningRepository;
   late final bool _ownsOnboardingGate;
   late final Listenable _routerRefresh;
   late final GoRouter _router;
@@ -60,6 +64,11 @@ class _ForgeAppState extends State<ForgeApp> {
     _onboardingGate =
         widget.onboardingGateController ??
         OnboardingGateController(_onboardingRepository);
+    _morningRepository =
+        widget.morningRepository ??
+        (AppEnv.hasSupabaseConfig
+            ? SupabaseMorningRepository(Supabase.instance.client)
+            : const EmptyMorningRepository());
     _routerRefresh = Listenable.merge([_session, _onboardingGate]);
     _session.addListener(_synchronizeOnboardingGate);
     _synchronizeOnboardingGate();
@@ -75,6 +84,9 @@ class _ForgeAppState extends State<ForgeApp> {
         if (_onboardingGate.isLoading) {
           return location == '/splash' ? null : '/splash';
         }
+        if (_onboardingGate.hasFailed) {
+          return location == '/splash' ? null : '/splash';
+        }
         if (!_onboardingGate.isCompleted) {
           return location == '/onboarding' ? null : '/onboarding';
         }
@@ -84,7 +96,17 @@ class _ForgeAppState extends State<ForgeApp> {
         };
       },
       routes: [
-        GoRoute(path: '/splash', builder: (_, _) => const _SplashScreen()),
+        GoRoute(
+          path: '/splash',
+          builder: (_, _) => AnimatedBuilder(
+            animation: _routerRefresh,
+            builder: (_, _) => _SplashScreen(
+              profileLoadFailed:
+                  _session.isAuthenticated && _onboardingGate.hasFailed,
+              onRetry: _onboardingGate.resolve,
+            ),
+          ),
+        ),
         GoRoute(
           path: '/auth',
           builder: (_, _) =>
@@ -104,7 +126,10 @@ class _ForgeAppState extends State<ForgeApp> {
         ),
         GoRoute(
           path: '/home',
-          builder: (_, _) => HomeScreen(onSignOut: _session.signOut),
+          builder: (_, _) => HomeScreen(
+            repository: _morningRepository,
+            onSignOut: _session.signOut,
+          ),
         ),
       ],
     );
@@ -143,19 +168,50 @@ class _CompletedOnboardingRepository implements OnboardingRepository {
 
   @override
   Future<void> save(OnboardingProfile profile) async {}
+
+  @override
+  Future<void> complete(OnboardingProfile profile) async {}
 }
 
 class _SplashScreen extends StatelessWidget {
-  const _SplashScreen();
+  const _SplashScreen({this.profileLoadFailed = false, this.onRetry});
+
+  final bool profileLoadFailed;
+  final VoidCallback? onRetry;
 
   @override
-  Widget build(BuildContext context) => const Scaffold(
+  Widget build(BuildContext context) => Scaffold(
     body: Center(
-      child: SizedBox(
-        width: 28,
-        height: 28,
-        child: CircularProgressIndicator(strokeWidth: 2.5),
-      ),
+      child: profileLoadFailed
+          ? Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cloud_off_rounded, size: 34),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Your journey is safe.',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Forge could not load your profile. We will never restart your onboarding because of a connection problem.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 22),
+                  FilledButton(
+                    onPressed: onRetry,
+                    child: const Text('Try again'),
+                  ),
+                ],
+              ),
+            )
+          : const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
     ),
   );
 }

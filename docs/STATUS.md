@@ -109,3 +109,20 @@ Status: complete locally on 2026-07-21.
 - Added optimistic completion with rollback and an atomic, ownership-checked
   database function for completion and XP changes.
 - Added focused domain and controller tests.
+
+## Product stabilization: persistence and premium Home foundation
+
+Status: complete locally on 2026-07-21.
+
+- Repaired missing profile rows before onboarding reads and writes.
+- Made onboarding completion an atomic Supabase transaction that persists all
+  answers and creates the three personalized habits.
+- Prevented profile-load failures from routing users back into onboarding.
+- Added distinct granted, denied, skipped, and undecided notification states,
+  including a respectful denied-permission experience.
+- Replaced placeholder tasks and the local demo controller with real Supabase
+  habits, atomic XP completion, server-refreshed streaks, and disappearing
+  completed missions.
+- Rebuilt Home around identity, next action, XP, levels, streaks, milestones,
+  and the next achievement without a percentage dashboard.
+- Added the full onboarding → sign-out → same-account sign-in regression test.

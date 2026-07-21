@@ -11,6 +11,8 @@ enum DisciplineLevel { starting, improving, consistent }
 
 enum StarterHabitKind { discipline, health, focus, study, sleep, screenTime }
 
+enum NotificationPreference { undecided, granted, denied, skipped }
+
 class StarterHabit {
   const StarterHabit({
     required this.title,
@@ -25,6 +27,25 @@ class StarterHabit {
   final int xp;
   final int effortMinutes;
   final StarterHabitKind kind;
+
+  Map<String, dynamic> toJson() => {
+    'source_key': kind.name,
+    'title': title,
+    'xp_reward': xp,
+    'effort_minutes': effortMinutes,
+    'scheduled_time': _cueTime,
+  };
+
+  String get _cueTime {
+    final match = RegExp(r'^(\d{1,2}):(\d{2}) (AM|PM)').firstMatch(cue);
+    if (match == null) return '07:00:00';
+    var hour = int.parse(match.group(1)!);
+    final minute = match.group(2)!;
+    final period = match.group(3)!;
+    if (period == 'AM' && hour == 12) hour = 0;
+    if (period == 'PM' && hour != 12) hour += 12;
+    return '${hour.toString().padLeft(2, '0')}:$minute:00';
+  }
 }
 
 class OnboardingProfile {
@@ -34,7 +55,7 @@ class OnboardingProfile {
     this.wakeTimeMinutes = 7 * 60,
     this.sleepTimeMinutes = 23 * 60,
     this.currentStep = 0,
-    this.notificationsEnabled,
+    this.notificationPreference = NotificationPreference.undecided,
     this.isCompleted = false,
   });
 
@@ -43,13 +64,19 @@ class OnboardingProfile {
   final int wakeTimeMinutes;
   final int sleepTimeMinutes;
   final int currentStep;
-  final bool? notificationsEnabled;
+  final NotificationPreference notificationPreference;
   final bool isCompleted;
 
   static const totalSteps = 7;
   static const maxGoals = 3;
 
   OnboardingGoal? get primaryGoal => goals.isEmpty ? null : goals.first;
+
+  bool? get notificationsEnabled => switch (notificationPreference) {
+    NotificationPreference.undecided => null,
+    NotificationPreference.granted => true,
+    NotificationPreference.denied || NotificationPreference.skipped => false,
+  };
 
   List<StarterHabit> get recommendedHabits {
     final level = disciplineLevel ?? DisciplineLevel.starting;
@@ -94,8 +121,7 @@ class OnboardingProfile {
     int? wakeTimeMinutes,
     int? sleepTimeMinutes,
     int? currentStep,
-    bool? notificationsEnabled,
-    bool clearNotificationPreference = false,
+    NotificationPreference? notificationPreference,
     bool? isCompleted,
   }) => OnboardingProfile(
     goals: goals ?? this.goals,
@@ -103,9 +129,8 @@ class OnboardingProfile {
     wakeTimeMinutes: wakeTimeMinutes ?? this.wakeTimeMinutes,
     sleepTimeMinutes: sleepTimeMinutes ?? this.sleepTimeMinutes,
     currentStep: currentStep ?? this.currentStep,
-    notificationsEnabled: clearNotificationPreference
-        ? null
-        : notificationsEnabled ?? this.notificationsEnabled,
+    notificationPreference:
+        notificationPreference ?? this.notificationPreference,
     isCompleted: isCompleted ?? this.isCompleted,
   );
 
@@ -126,7 +151,7 @@ class OnboardingProfile {
       sleepTimeMinutes:
           _timeToMinutes(json['sleep_time'] as String?) ?? 23 * 60,
       currentStep: (json['onboarding_step'] as num?)?.toInt() ?? 0,
-      notificationsEnabled: json['notifications_enabled'] as bool?,
+      notificationPreference: _notificationPreferenceFromJson(json),
       isCompleted: json['onboarding_completed'] as bool? ?? false,
     );
   }
@@ -138,6 +163,7 @@ class OnboardingProfile {
     'sleep_time': _minutesToTime(sleepTimeMinutes),
     'onboarding_step': currentStep.clamp(0, totalSteps - 1),
     'notifications_enabled': notificationsEnabled,
+    'notification_permission_state': notificationPreference.name,
     'onboarding_completed': isCompleted,
     'onboarding_updated_at': DateTime.now().toUtc().toIso8601String(),
   };
@@ -214,6 +240,20 @@ class OnboardingProfile {
       if (level.name == value) return level;
     }
     return null;
+  }
+
+  static NotificationPreference _notificationPreferenceFromJson(
+    Map<String, dynamic> json,
+  ) {
+    final persisted = json['notification_permission_state'] as String?;
+    for (final preference in NotificationPreference.values) {
+      if (preference.name == persisted) return preference;
+    }
+    return switch (json['notifications_enabled'] as bool?) {
+      true => NotificationPreference.granted,
+      false => NotificationPreference.denied,
+      null => NotificationPreference.undecided,
+    };
   }
 
   static int? _timeToMinutes(String? value) {

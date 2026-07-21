@@ -29,18 +29,23 @@ class SupabaseMorningRepository implements MorningRepository {
   @override
   Future<MorningSnapshot> load(DateTime date) async {
     final userId = _userId;
+    await _client.rpc('ensure_user_profile');
     final dateKey = _dateKey(date);
     final results = await Future.wait<dynamic>([
       _client
           .from('profiles')
           .select(
-            'display_name, total_xp, current_streak, longest_streak, created_at',
+            'display_name, onboarding_goals, discipline_level, total_xp, '
+            'current_streak, longest_streak, created_at',
           )
           .eq('id', userId)
           .single(),
       _client
           .from('habits')
-          .select('id, title, xp_reward, created_at')
+          .select(
+            'id, title, xp_reward, source_key, scheduled_time, '
+            'effort_minutes, created_at',
+          )
           .eq('user_id', userId)
           .eq('is_active', true)
           .order('created_at'),
@@ -63,6 +68,7 @@ class SupabaseMorningRepository implements MorningRepository {
 
     return MorningSnapshot(
       displayName: _firstName(profile['display_name'] as String?),
+      identityLabel: _identityLabel(profile),
       dayNumber: today.difference(started).inDays.clamp(0, 100000) + 1,
       totalXp: (profile['total_xp'] as num).toInt(),
       currentStreak: (profile['current_streak'] as num).toInt(),
@@ -101,4 +107,49 @@ class SupabaseMorningRepository implements MorningRepository {
     if (trimmed.isEmpty) return 'Builder';
     return trimmed.split(RegExp(r'\s+')).first;
   }
+
+  static String _identityLabel(Map<String, dynamic> profile) {
+    final goals =
+        (profile['onboarding_goals'] as List?)?.whereType<String>().toList() ??
+        const <String>[];
+    const labels = {
+      'disciplined': 'more disciplined',
+      'healthier': 'healthier',
+      'productive': 'more productive',
+      'student': 'a stronger student',
+      'betterSleep': 'well-rested',
+      'reduceScreenTime': 'more intentional',
+    };
+    final selected = goals
+        .map((goal) => labels[goal])
+        .whereType<String>()
+        .take(2)
+        .toList();
+    if (selected.isEmpty) return 'someone who keeps promises';
+    if (selected.length == 1) return selected.first;
+    return '${selected.first} and ${selected.last}';
+  }
+}
+
+class EmptyMorningRepository implements MorningRepository {
+  const EmptyMorningRepository();
+
+  @override
+  Future<MorningSnapshot> load(DateTime date) async => MorningSnapshot(
+    displayName: 'Builder',
+    identityLabel: 'someone who keeps promises',
+    dayNumber: 1,
+    totalXp: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    habits: const [],
+    forDate: DateTime(date.year, date.month, date.day),
+  );
+
+  @override
+  Future<void> setHabitCompletion({
+    required String habitId,
+    required DateTime date,
+    required bool isComplete,
+  }) async {}
 }

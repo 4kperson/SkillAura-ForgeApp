@@ -6,6 +6,7 @@ void main() {
   test('turns raw progress into emotionally meaningful metrics', () {
     final snapshot = MorningSnapshot(
       displayName: 'Brian',
+      identityLabel: 'more disciplined',
       dayNumber: 12,
       totalXp: 620,
       currentStreak: 8,
@@ -29,6 +30,7 @@ void main() {
   test('celebrates keeping every promise', () {
     final snapshot = MorningSnapshot(
       displayName: 'Brian',
+      identityLabel: 'more disciplined',
       dayNumber: 3,
       totalXp: 100,
       currentStreak: 2,

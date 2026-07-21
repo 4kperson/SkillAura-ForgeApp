@@ -81,4 +81,7 @@ class _MemoryOnboardingRepository implements OnboardingRepository {
 
   @override
   Future<void> save(OnboardingProfile profile) async => value = profile;
+
+  @override
+  Future<void> complete(OnboardingProfile profile) async => value = profile;
 }

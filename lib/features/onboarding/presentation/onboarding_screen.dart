@@ -78,12 +78,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _requestNotifications() async {
     final allowed =
         await widget.notificationPermissionRequester?.call() ?? false;
-    final saved = await _controller.setNotificationPreference(allowed);
-    if (saved && mounted) await _goTo(6);
+    final preference = allowed
+        ? NotificationPreference.granted
+        : NotificationPreference.denied;
+    final saved = await _controller.setNotificationPreference(preference);
+    if (saved && allowed && mounted) await _goTo(6);
   }
 
   Future<void> _skipNotifications() async {
-    final saved = await _controller.setNotificationPreference(false);
+    final saved = await _controller.setNotificationPreference(
+      NotificationPreference.skipped,
+    );
     if (saved && mounted) await _goTo(6);
   }
 
@@ -197,8 +202,10 @@ class _Journey extends StatelessWidget {
                 onContinue: () => onNext(5),
               ),
               _NotificationStep(
+                preference: controller.profile.notificationPreference,
                 onAllow: onRequestNotifications,
                 onSkip: onSkipNotifications,
+                onContinueDenied: () => onNext(6),
               ),
               _CompletionStep(profile: controller.profile, onFinish: onFinish),
             ],
@@ -683,12 +690,30 @@ class _PlanStep extends StatelessWidget {
 }
 
 class _NotificationStep extends StatelessWidget {
-  const _NotificationStep({required this.onAllow, required this.onSkip});
+  const _NotificationStep({
+    required this.preference,
+    required this.onAllow,
+    required this.onSkip,
+    required this.onContinueDenied,
+  });
+  final NotificationPreference preference;
   final VoidCallback onAllow;
   final VoidCallback onSkip;
+  final VoidCallback onContinueDenied;
 
   @override
   Widget build(BuildContext context) {
+    if (preference == NotificationPreference.denied) {
+      return _StepFrame(
+        eyebrow: 'Choice respected',
+        title: 'Your attention stays\nin your hands.',
+        body:
+            'Without notification access, Forge will stay quiet outside the app. Your plan remains complete and you can enable reminders later.',
+        primaryLabel: 'Continue without reminders',
+        onPrimary: onContinueDenied,
+        content: const _NotificationTradeoff(),
+      );
+    }
     return _StepFrame(
       eyebrow: 'A quiet nudge',
       title: 'Support when\nintention gets busy.',
@@ -724,6 +749,90 @@ class _NotificationStep extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationTradeoff extends StatelessWidget {
+  const _NotificationTradeoff();
+
+  @override
+  Widget build(BuildContext context) {
+    const moments = [
+      (
+        Icons.wb_sunny_outlined,
+        'Morning cue',
+        'Your first commitment will wait until you open Forge.',
+      ),
+      (
+        Icons.shield_moon_outlined,
+        'Evening reset',
+        'Your wind-down prompt will remain silent.',
+      ),
+      (
+        Icons.local_fire_department_outlined,
+        'Streak support',
+        'Forge cannot nudge you before a day closes.',
+      ),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .045),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < moments.length; index++) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    moments[index].$1,
+                    color: AppColors.primaryBright,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        moments[index].$2,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        moments[index].$3,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (index < moments.length - 1)
+              Divider(height: 25, color: Colors.white.withValues(alpha: .07)),
+          ],
         ],
       ),
     );

@@ -50,6 +50,16 @@ The personalized onboarding polish requires
 `onboarding_goals text[]` column used to persist every selected priority. The
 legacy single-goal column and all existing profile rows remain unchanged.
 
+The product-stability release requires
+`202607210005_product_stability.sql`. Run it after the earlier migrations. It:
+
+- repairs missing profile creation for existing and future authenticated users;
+- persists notification permission state;
+- stores the personalized onboarding plan as real habits;
+- keeps completion, XP, and streak changes server-owned;
+- restores missing habit tables, policies, trigger, and RPCs idempotently for
+  projects whose earliest schema migration only partially completed.
+
 ## Mobile email confirmation
 
 Supabase Flutter listens for the confirmation callback and exchanges its code or

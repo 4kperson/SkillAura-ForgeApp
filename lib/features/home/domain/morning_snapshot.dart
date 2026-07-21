@@ -3,6 +3,7 @@ import '../../habits/domain/habit.dart';
 class MorningSnapshot {
   const MorningSnapshot({
     required this.displayName,
+    required this.identityLabel,
     required this.dayNumber,
     required this.totalXp,
     required this.currentStreak,
@@ -12,6 +13,7 @@ class MorningSnapshot {
   });
 
   final String displayName;
+  final String identityLabel;
   final int dayNumber;
   final int totalXp;
   final int currentStreak;
@@ -25,8 +27,27 @@ class MorningSnapshot {
   int get todayXp => habits
       .where((habit) => habit.isComplete)
       .fold(0, (total, habit) => total + habit.xp);
+  int get availableTodayXp =>
+      habits.fold(0, (total, habit) => total + habit.xp);
+  List<Habit> get remainingHabits =>
+      habits.where((habit) => !habit.isComplete).toList(growable: false);
 
   LevelProgress get levelProgress => LevelProgress.fromTotalXp(totalXp);
+
+  int get nextStreakMilestone {
+    for (final target in const [3, 7, 14, 30, 60, 100, 180, 365]) {
+      if (currentStreak < target) return target;
+    }
+    return ((currentStreak ~/ 100) + 1) * 100;
+  }
+
+  String get nextAchievement {
+    if (levelProgress.xpRemaining <= availableTodayXp) {
+      return 'Level ${levelProgress.level + 1} is within today’s reach';
+    }
+    final days = nextStreakMilestone - currentStreak;
+    return '$days ${days == 1 ? 'day' : 'days'} to a $nextStreakMilestone-day streak';
+  }
 
   String get dayIdentity {
     if (completedCount == totalCount && totalCount > 0) {
@@ -45,6 +66,7 @@ class MorningSnapshot {
     List<Habit>? habits,
   }) => MorningSnapshot(
     displayName: displayName,
+    identityLabel: identityLabel,
     dayNumber: dayNumber,
     totalXp: totalXp ?? this.totalXp,
     currentStreak: currentStreak ?? this.currentStreak,

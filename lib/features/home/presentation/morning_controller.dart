@@ -66,6 +66,16 @@ class MorningController extends ChangeNotifier {
     } catch (_) {
       _snapshot = current;
       _errorMessage = 'That promise was not saved. Tap again to retry.';
+      _updatingHabitIds.remove(habitId);
+      notifyListeners();
+      return;
+    }
+
+    try {
+      _snapshot = await _repository.load(current.forDate);
+    } catch (_) {
+      _errorMessage =
+          'Your promise is saved. Live streak details will refresh shortly.';
     } finally {
       _updatingHabitIds.remove(habitId);
       notifyListeners();

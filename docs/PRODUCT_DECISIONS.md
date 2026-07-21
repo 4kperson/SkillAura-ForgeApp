@@ -33,3 +33,15 @@ appears only after Forge explains its value and offers a clear "Not now" path.
 
 ## Core retention loop
 Choose commitments → complete them → progress through levels → protect streak → review progress → return tomorrow.
+
+## Morning experience
+
+Home answers three questions in order: who the user is becoming, which promise
+comes next, and how close the next meaningful milestone is. Progress is framed
+through cumulative XP, levels, streak continuity, and achievements rather than
+a generic daily percentage. Completed missions leave the action list so the
+screen becomes calmer as the user moves through the day.
+
+Notification refusal is treated as an informed product choice. Forge names the
+quiet moments the user will not receive, stores denied separately from skipped,
+and continues without guilt or repeated pressure.
