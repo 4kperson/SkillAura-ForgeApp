@@ -32,6 +32,13 @@ flutter run \
 
 Never commit production secrets. Supabase's publishable/anon key is designed for clients, while database protection must be enforced through RLS.
 
+### Apply database migrations
+
+Apply the SQL files in `supabase/migrations` to the connected Supabase project
+in filename order. Sprint 2 requires
+`202607210001_onboarding_profile.sql`; it adds the profile fields used to save
+answers, resume progress, notification preference, and permanent completion.
+
 ## Mobile email confirmation
 
 Supabase Flutter listens for the confirmation callback and exchanges its code or

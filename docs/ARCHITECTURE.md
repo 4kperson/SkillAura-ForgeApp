@@ -21,6 +21,11 @@ notification preference, and completion. Presentation code talks only to the
 on the authenticated user's `profiles` row, protected by the existing owner-only
 row-level security policy.
 
+`OnboardingGateController` resolves only after authentication. Routing remains
+on the splash screen until both session and onboarding status are known, which
+prevents Auth, Onboarding, or Home from flashing during startup. Completion
+updates Supabase before the gate permits Home.
+
 ## Branch policy
 - `main`: production-ready only.
 - `develop`: integration branch.

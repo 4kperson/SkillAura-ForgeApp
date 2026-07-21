@@ -80,6 +80,60 @@ void main() {
     );
     expect(find.text('Focused study'), findsOneWidget);
   });
+
+  testWidgets('requests notification permission only after explanation', (
+    tester,
+  ) async {
+    var requested = false;
+    final repository = _MemoryOnboardingRepository(
+      const OnboardingProfile(currentStep: 5),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: OnboardingScreen(
+          repository: repository,
+          notificationPermissionRequester: () async {
+            requested = true;
+            return true;
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(requested, isFalse);
+    expect(find.text('Support when\nintention gets busy.'), findsOneWidget);
+
+    await tester.tap(find.text('Keep me on track'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(requested, isTrue);
+    expect(repository.value.notificationsEnabled, isTrue);
+    expect(find.text('Day One starts now.'), findsOneWidget);
+  });
+
+  testWidgets('Start Day One persists completion before handoff', (
+    tester,
+  ) async {
+    var completed = false;
+    final repository = _MemoryOnboardingRepository(
+      const OnboardingProfile(currentStep: 6),
+    );
+    await tester.pumpWidget(
+      subject(repository, onCompleted: () => completed = true),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    await tester.tap(find.text('Start Day One'));
+    await tester.pump();
+
+    expect(repository.value.isCompleted, isTrue);
+    expect(completed, isTrue);
+  });
 }
 
 class _MemoryOnboardingRepository implements OnboardingRepository {

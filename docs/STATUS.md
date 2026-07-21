@@ -62,3 +62,15 @@ Status: complete locally on 2026-07-21.
 - Added restrained motion, semantic selection states, responsive layouts, and
   compact-device overflow coverage.
 - Added controller tests for resume, progressive persistence, and completion.
+
+## Milestone: onboarding routing and native permission integration
+
+Status: complete locally on 2026-07-21.
+
+- Added a startup onboarding gate that resolves after authentication without
+  route flicker.
+- Incomplete users resume onboarding; completed users bypass it permanently.
+- Added Android notification permission configuration and requests permission
+  only after the benefit explanation.
+- Added integration coverage for loading, resume, permanent bypass,
+  notification consent, completion persistence, and Home handoff.
