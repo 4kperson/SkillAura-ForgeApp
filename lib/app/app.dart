@@ -55,7 +55,11 @@ class _ForgeAppState extends State<ForgeApp> {
       },
       routes: [
         GoRoute(path: '/splash', builder: (_, _) => const _SplashScreen()),
-        GoRoute(path: '/auth', builder: (_, _) => const AuthScreen()),
+        GoRoute(
+          path: '/auth',
+          builder: (_, _) =>
+              AuthScreen(initialMessage: _session.callbackErrorMessage),
+        ),
         GoRoute(
           path: '/onboarding',
           builder: (_, _) => const OnboardingScreen(),

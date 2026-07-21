@@ -8,7 +8,9 @@ import '../data/auth_error_mapper.dart';
 import '../data/auth_repository.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({super.key, this.initialMessage});
+
+  final String? initialMessage;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -25,6 +27,24 @@ class _AuthScreenState extends State<AuthScreen> {
   var _submitted = false;
   String? _message;
   var _messageIsSuccess = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _message = widget.initialMessage;
+  }
+
+  @override
+  void didUpdateWidget(covariant AuthScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialMessage != oldWidget.initialMessage &&
+        widget.initialMessage != null) {
+      setState(() {
+        _message = widget.initialMessage;
+        _messageIsSuccess = false;
+      });
+    }
+  }
 
   @override
   void dispose() {

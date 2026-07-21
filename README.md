@@ -31,3 +31,14 @@ flutter run \
 ```
 
 Never commit production secrets. Supabase's publishable/anon key is designed for clients, while database protection must be enforced through RLS.
+
+## Mobile email confirmation
+
+Supabase Flutter listens for the confirmation callback and exchanges its code or
+tokens for a persisted session. The native projects register this callback URI:
+
+`com.skillaura.forge://login-callback/`
+
+In the Supabase dashboard, open **Authentication → URL Configuration → Redirect
+URLs** and add the exact URI above. Without this allow-list entry, confirmation
+links cannot return to the installed app.

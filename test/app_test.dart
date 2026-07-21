@@ -41,6 +41,29 @@ void main() {
     expect(find.text('Daily commitments'), findsOneWidget);
   });
 
+  testWidgets('authenticated confirmation callback resolves to home', (
+    tester,
+  ) async {
+    final source = _FakeSessionSource(signedIn: true);
+    final controller = SessionController(source);
+    addTearDown(() async {
+      controller.dispose();
+      await source.dispose();
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: ForgeApp(
+          sessionController: controller,
+          initialLocation: '/auth',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Daily commitments'), findsOneWidget);
+  });
+
   testWidgets('shows a splash while the stored session is resolving', (
     tester,
   ) async {
@@ -120,6 +143,9 @@ class _FakeSessionSource implements SessionSource {
 
   @override
   Stream<bool> get signedInChanges => _changes.stream;
+
+  @override
+  Stream<Object> get authErrors => const Stream<Object>.empty();
 
   @override
   Future<void> signOut() async {
