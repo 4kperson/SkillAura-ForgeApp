@@ -81,3 +81,17 @@ The existing `public.profiles` table is preserved. Run
 `202607210002_repair_onboarding_profile.sql` in Supabase when applying the
 onboarding schema. It contains no drop, rename, recreate, truncate, or data
 deletion statements and can safely be rerun.
+
+# Sprint 3 Status
+
+## Milestone: morning data foundation
+
+Status: complete locally on 2026-07-21.
+
+- Added a production-shaped morning aggregate for profile, day identity,
+  habits, completion, streak, XP, and level progress.
+- Added a Supabase repository that reads the existing profile, habits, and
+  completion tables.
+- Added optimistic completion with rollback and an atomic, ownership-checked
+  database function for completion and XP changes.
+- Added focused domain and controller tests.

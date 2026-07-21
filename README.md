@@ -41,6 +41,10 @@ save answers, resume progress, notification preference, and permanent
 completion without recreating the existing `profiles` table. The migration
 also includes verification queries for columns, RLS, and owner policies.
 
+Sprint 3 also requires `202607210003_morning_completion_rpc.sql`, which adds
+the authenticated completion function used to keep habit completion and XP
+changes atomic.
+
 ## Mobile email confirmation
 
 Supabase Flutter listens for the confirmation callback and exchanges its code or

@@ -11,6 +11,16 @@ class Habit {
   final int xp;
   final bool isComplete;
 
+  factory Habit.fromJson(
+    Map<String, dynamic> json, {
+    required bool isComplete,
+  }) => Habit(
+    id: json['id'] as String,
+    title: json['title'] as String,
+    xp: (json['xp_reward'] as num).toInt(),
+    isComplete: isComplete,
+  );
+
   Habit copyWith({bool? isComplete}) => Habit(
     id: id,
     title: title,

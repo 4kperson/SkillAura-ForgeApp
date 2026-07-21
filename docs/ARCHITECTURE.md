@@ -26,6 +26,15 @@ on the splash screen until both session and onboarding status are known, which
 prevents Auth, Onboarding, or Home from flashing during startup. Completion
 updates Supabase before the gate permits Home.
 
+## Morning experience
+
+`MorningSnapshot` is the presentation-ready aggregate for the first Home view.
+`SupabaseMorningRepository` builds it from the authenticated user's profile,
+active habits, and today's completion rows. `MorningController` owns loading,
+optimistic one-tap completion, rollback, and retry messaging. Completion writes
+go through an ownership-checked database function so the completion row and XP
+remain atomic and idempotent.
+
 ## Branch policy
 - `main`: production-ready only.
 - `develop`: integration branch.
