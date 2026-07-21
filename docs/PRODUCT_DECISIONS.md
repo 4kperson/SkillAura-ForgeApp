@@ -21,10 +21,15 @@ Near-black surfaces, warm violet primary accent, large typography, restrained an
 ## Onboarding experience
 
 The first-run experience is a seven-step commitment journey, not a survey.
-Each screen asks for one decision or communicates one idea. Language emphasizes
-identity and achievable action; progress is saved after every transition. The
-notification permission prompt appears only after Forge explains its value and
-offers a clear "Not now" path.
+Users can select up to three priorities because real improvement is rarely
+one-dimensional. Difficulty directly controls habit duration, mission size, and
+Day One XP expectations. Wake and sleep times place each recommendation at a
+credible moment, making the generated starter plan visibly personal.
+
+Each screen asks for one decision or communicates one idea. Language explains
+why Forge needs each answer and emphasizes identity and achievable action;
+progress is saved after every transition. The notification permission prompt
+appears only after Forge explains its value and offers a clear "Not now" path.
 
 ## Core retention loop
-Choose commitments → complete them → earn XP → protect streak → review progress → return tomorrow.
+Choose commitments → complete them → progress through levels → protect streak → review progress → return tomorrow.

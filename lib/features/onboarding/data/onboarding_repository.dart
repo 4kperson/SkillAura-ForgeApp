@@ -13,7 +13,7 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
   final SupabaseClient _client;
 
   static const _columns =
-      'onboarding_goal, discipline_level, wake_time, sleep_time, '
+      'onboarding_goal, onboarding_goals, discipline_level, wake_time, sleep_time, '
       'onboarding_step, notifications_enabled, onboarding_completed';
 
   String get _userId {

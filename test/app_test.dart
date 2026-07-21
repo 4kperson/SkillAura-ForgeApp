@@ -138,7 +138,7 @@ void main() {
     final controller = SessionController(source);
     final onboarding = _FakeOnboardingRepository(
       const OnboardingProfile(
-        goal: OnboardingGoal.student,
+        goals: [OnboardingGoal.student],
         disciplineLevel: DisciplineLevel.improving,
         currentStep: 4,
       ),
@@ -161,10 +161,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
 
-    expect(
-      find.text('Small enough to start.\nStrong enough to matter.'),
-      findsOneWidget,
-    );
+    expect(find.text('This plan was built\naround you.'), findsOneWidget);
     expect(find.text('Daily commitments'), findsNothing);
   });
 

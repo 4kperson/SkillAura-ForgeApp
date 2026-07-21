@@ -418,50 +418,61 @@ class _GoalStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const options = [
-      (OnboardingGoal.disciplined, 'More disciplined', Icons.bolt_rounded),
-      (OnboardingGoal.healthier, 'Healthier', Icons.favorite_rounded),
+      (OnboardingGoal.disciplined, 'Build discipline', Icons.bolt_rounded),
+      (OnboardingGoal.healthier, 'Improve health', Icons.favorite_rounded),
       (
         OnboardingGoal.productive,
-        'More productive',
+        'Increase productivity',
         Icons.rocket_launch_rounded,
       ),
-      (OnboardingGoal.student, 'A better student', Icons.school_rounded),
+      (OnboardingGoal.student, 'Study better', Icons.school_rounded),
+      (OnboardingGoal.betterSleep, 'Sleep better', Icons.bedtime_rounded),
       (
-        OnboardingGoal.entrepreneur,
-        'A better entrepreneur',
-        Icons.trending_up_rounded,
-      ),
-      (
-        OnboardingGoal.betterHabits,
-        'Consistent with habits',
-        Icons.repeat_rounded,
+        OnboardingGoal.reduceScreenTime,
+        'Reduce screen time',
+        Icons.phone_android_rounded,
       ),
     ];
     return _StepFrame(
-      eyebrow: 'Your direction',
-      title: 'What are you trying\nto become?',
+      eyebrow: 'The life you are building',
+      title: 'What deserves more\nof your attention?',
       body:
-          "Choose the identity that matters most right now. We'll shape your first plan around it.",
-      primaryLabel: 'This is who I am becoming',
-      primaryEnabled: controller.profile.goal != null,
+          'Choose up to three. The right plan should reflect the life you want—not a generic checklist.',
+      primaryLabel: 'Shape my path',
+      primaryEnabled: controller.profile.goals.isNotEmpty,
       onPrimary: onContinue,
-      content: LayoutBuilder(
-        builder: (context, constraints) => Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            for (final option in options)
-              SizedBox(
-                width: math.max(150, (constraints.maxWidth - 12) / 2),
-                child: _ChoiceCard(
-                  label: option.$2,
-                  icon: option.$3,
-                  selected: controller.profile.goal == option.$1,
-                  onTap: () => controller.selectGoal(option.$1),
-                ),
-              ),
-          ],
-        ),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${controller.profile.goals.length} of ${OnboardingProfile.maxGoals} selected',
+            style: const TextStyle(
+              color: AppColors.primaryBright,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .3,
+            ),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) => Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (final option in options)
+                  SizedBox(
+                    width: math.max(150, (constraints.maxWidth - 12) / 2),
+                    child: _ChoiceCard(
+                      label: option.$2,
+                      icon: option.$3,
+                      selected: controller.profile.goals.contains(option.$1),
+                      onTap: () => controller.toggleGoal(option.$1),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -477,29 +488,29 @@ class _DisciplineStep extends StatelessWidget {
     const options = [
       (
         DisciplineLevel.starting,
-        "I'm just getting started",
-        'I want a simple foundation I can trust.',
+        'Beginner',
+        'Short habits · lower XP targets · gentle momentum',
         Icons.wb_sunny_outlined,
       ),
       (
         DisciplineLevel.improving,
-        "I'm building momentum",
-        'Some days are strong. I want consistency.',
+        'Intermediate',
+        'Balanced effort · steady XP · stronger consistency',
         Icons.stairs_rounded,
       ),
       (
         DisciplineLevel.consistent,
-        "I'm already disciplined",
-        'I want sharper systems and higher standards.',
+        'Advanced',
+        'Larger missions · higher XP · ambitious standards',
         Icons.workspace_premium_rounded,
       ),
     ];
     return _StepFrame(
-      eyebrow: 'Your starting point',
-      title: 'Where are you\nright now?',
+      eyebrow: 'Set the right difficulty',
+      title: 'What challenge will\nyou respect?',
       body:
-          "No judgment and no score. This simply helps Forge meet you at the right level.",
-      primaryLabel: 'Personalize my path',
+          'We ask so your first week feels achievable—not trivial, not punishing. You can change this later.',
+      primaryLabel: 'Set my starting standard',
       primaryEnabled: controller.profile.disciplineLevel != null,
       onPrimary: onContinue,
       content: Column(
@@ -559,11 +570,11 @@ class _RoutineStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _StepFrame(
-      eyebrow: 'Your rhythm',
-      title: 'Design around\nyour real life.',
+      eyebrow: 'Protect your rhythm',
+      title: 'When does your day\nbelong to you?',
       body:
-          "Your plan should fit your day—not fight it. Set the rhythm you can actually protect.",
-      primaryLabel: 'Build around my routine',
+          'Your wake and sleep times help us place each commitment where your energy can actually support it.',
+      primaryLabel: 'Build around my rhythm',
       onPrimary: onContinue,
       content: Column(
         children: [
@@ -585,7 +596,7 @@ class _RoutineStep extends StatelessWidget {
           const SizedBox(height: 22),
           const _InsightStrip(
             icon: Icons.auto_awesome_rounded,
-            text: 'We will use this rhythm to make your plan feel natural.',
+            text: 'These moments will shape your plan—not just fill a profile.',
           ),
         ],
       ),
@@ -602,35 +613,70 @@ class _PlanStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final habits = profile.recommendedHabits;
     return _StepFrame(
-      eyebrow: 'Your starting plan',
-      title: 'Small enough to start.\nStrong enough to matter.',
+      eyebrow: 'Your personal Day One',
+      title: 'This plan was built\naround you.',
       body:
-          "Based on your goal, we'll begin with three commitments. You can shape them later.",
-      primaryLabel: 'This plan feels possible',
+          'Your goals chose the direction. Your level set the challenge. Your routine found the right moments.',
+      primaryLabel: 'Commit to this Day One',
       onPrimary: onContinue,
-      content: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .045),
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: Colors.white.withValues(alpha: .08)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x22000000),
-              blurRadius: 32,
-              offset: Offset(0, 16),
+      content: Column(
+        children: [
+          _InsightStrip(
+            icon: Icons.tune_rounded,
+            text: profile.personalizationSummary,
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .045),
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: Colors.white.withValues(alpha: .08)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x22000000),
+                  blurRadius: 32,
+                  offset: Offset(0, 16),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          children: [
-            for (var index = 0; index < habits.length; index++) ...[
-              _PlanHabit(index: index, title: habits[index]),
-              if (index < habits.length - 1)
+            child: Column(
+              children: [
+                for (var index = 0; index < habits.length; index++) ...[
+                  _PlanHabit(habit: habits[index]),
+                  if (index < habits.length - 1)
+                    Divider(
+                      height: 25,
+                      color: Colors.white.withValues(alpha: .07),
+                    ),
+                ],
                 Divider(height: 25, color: Colors.white.withValues(alpha: .07)),
-            ],
-          ],
-        ),
+                Row(
+                  children: [
+                    const Text(
+                      'DAY ONE PROGRESSION',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${profile.startingXpTarget} XP',
+                      style: const TextStyle(
+                        color: AppColors.primaryBright,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -691,11 +737,12 @@ class _CompletionStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final firstHabit = profile.recommendedHabits.first;
     return _StepFrame(
-      eyebrow: 'Commitment made',
-      title: 'Day One starts now.',
+      eyebrow: 'Your journey is ready',
+      title: 'Your first promise\nis waiting.',
       body:
-          "You don't need a perfect life. You need one honest day, followed by another.",
+          'You built a plan for your ambition and your real life. Day One is not a test—it is proof that you started.',
       primaryLabel: 'Start Day One',
       onPrimary: onFinish,
       centered: true,
@@ -731,11 +778,20 @@ class _CompletionStep extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Complete ${profile.recommendedHabits.first.toLowerCase()}.',
+                        firstHabit.title,
                         style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '${firstHabit.cue}  ·  +${firstHabit.xp} XP',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -988,17 +1044,19 @@ class _TimeCard extends StatelessWidget {
 }
 
 class _PlanHabit extends StatelessWidget {
-  const _PlanHabit({required this.index, required this.title});
-  final int index;
-  final String title;
+  const _PlanHabit({required this.habit});
+  final StarterHabit habit;
 
   @override
   Widget build(BuildContext context) {
-    final icons = [
-      Icons.wb_sunny_outlined,
-      Icons.center_focus_strong_rounded,
-      Icons.menu_book_rounded,
-    ];
+    final icon = switch (habit.kind) {
+      StarterHabitKind.discipline => Icons.bolt_rounded,
+      StarterHabitKind.health => Icons.favorite_rounded,
+      StarterHabitKind.focus => Icons.center_focus_strong_rounded,
+      StarterHabitKind.study => Icons.school_rounded,
+      StarterHabitKind.sleep => Icons.bedtime_rounded,
+      StarterHabitKind.screenTime => Icons.phone_android_rounded,
+    };
     return Row(
       children: [
         Container(
@@ -1008,24 +1066,39 @@ class _PlanHabit extends StatelessWidget {
             color: AppColors.primary.withValues(alpha: .14),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Icon(icons[index], color: AppColors.primaryBright, size: 21),
+          child: Icon(icon, color: AppColors.primaryBright, size: 21),
         ),
         const SizedBox(width: 14),
         Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                habit.title,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                habit.cue,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
+        const SizedBox(width: 8),
         Text(
-          '${index + 1}',
+          '+${habit.xp} XP',
           style: const TextStyle(
-            color: Colors.white24,
-            fontSize: 12,
+            color: AppColors.primaryBright,
+            fontSize: 11,
             fontWeight: FontWeight.w800,
           ),
         ),

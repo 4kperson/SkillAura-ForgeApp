@@ -75,6 +75,20 @@ Status: complete locally on 2026-07-21.
 - Added integration coverage for loading, resume, permanent bypass,
   notification consent, completion persistence, and Home handoff.
 
+## Milestone: personalized onboarding polish
+
+Status: complete locally on 2026-07-21.
+
+- Expanded onboarding to persist up to three selected priorities.
+- Made Beginner, Intermediate, and Advanced paths change habit effort, mission
+  size, and XP expectations.
+- Generated three starter habits from selected goals, difficulty, wake time,
+  and sleep time instead of serving a universal plan.
+- Reworked decision copy to explain why each answer matters and reframed the
+  final screen as the beginning of Day One.
+- Preserved legacy single-goal profile compatibility and added an additive
+  `text[]` database migration.
+
 ## Database repair
 
 The existing `public.profiles` table is preserved. Run

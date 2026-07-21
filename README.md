@@ -45,6 +45,11 @@ Sprint 3 also requires `202607210003_morning_completion_rpc.sql`, which adds
 the authenticated completion function used to keep habit completion and XP
 changes atomic.
 
+The personalized onboarding polish requires
+`202607210004_personalized_onboarding.sql`. It adds the non-destructive
+`onboarding_goals text[]` column used to persist every selected priority. The
+legacy single-goal column and all existing profile rows remain unchanged.
+
 ## Mobile email confirmation
 
 Supabase Flutter listens for the confirmation callback and exchanges its code or

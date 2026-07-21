@@ -34,7 +34,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('requires and persists an identity choice', (tester) async {
+  testWidgets('requires and persists multiple priority choices', (
+    tester,
+  ) async {
     final repository = _MemoryOnboardingRepository();
     await tester.pumpWidget(subject(repository));
     await tester.pump(const Duration(milliseconds: 600));
@@ -45,26 +47,31 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
 
     final continueButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'This is who I am becoming'),
+      find.widgetWithText(FilledButton, 'Shape my path'),
     );
     expect(continueButton.onPressed, isNull);
 
-    await tester.tap(find.text('More disciplined'));
+    await tester.tap(find.text('Build discipline'));
+    await tester.tap(find.text('Improve health'));
     await tester.pump(const Duration(milliseconds: 250));
-    await tester.ensureVisible(find.text('This is who I am becoming'));
-    await tester.tap(find.text('This is who I am becoming'));
+    expect(find.text('2 of 3 selected'), findsOneWidget);
+    await tester.ensureVisible(find.text('Shape my path'));
+    await tester.tap(find.text('Shape my path'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
 
-    expect(repository.value.goal, OnboardingGoal.disciplined);
+    expect(repository.value.goals, [
+      OnboardingGoal.disciplined,
+      OnboardingGoal.healthier,
+    ]);
     expect(repository.value.currentStep, 2);
-    expect(find.text('Where are you\nright now?'), findsOneWidget);
+    expect(find.text('What challenge will\nyou respect?'), findsOneWidget);
   });
 
   testWidgets('resumes directly at the persisted plan step', (tester) async {
     final repository = _MemoryOnboardingRepository(
       const OnboardingProfile(
-        goal: OnboardingGoal.student,
+        goals: [OnboardingGoal.student],
         disciplineLevel: DisciplineLevel.improving,
         currentStep: 4,
       ),
@@ -74,11 +81,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
 
-    expect(
-      find.text('Small enough to start.\nStrong enough to matter.'),
-      findsOneWidget,
-    );
-    expect(find.text('Focused study'), findsOneWidget);
+    expect(find.text('This plan was built\naround you.'), findsOneWidget);
+    expect(find.text('Study one topic for 35 minutes'), findsOneWidget);
   });
 
   testWidgets('requests notification permission only after explanation', (
@@ -112,7 +116,7 @@ void main() {
 
     expect(requested, isTrue);
     expect(repository.value.notificationsEnabled, isTrue);
-    expect(find.text('Day One starts now.'), findsOneWidget);
+    expect(find.text('Your first promise\nis waiting.'), findsOneWidget);
   });
 
   testWidgets('Start Day One persists completion before handoff', (

@@ -36,8 +36,15 @@ class OnboardingController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void selectGoal(OnboardingGoal goal) =>
-      _update(_profile.copyWith(goal: goal));
+  void toggleGoal(OnboardingGoal goal) {
+    final goals = [..._profile.goals];
+    if (goals.contains(goal)) {
+      goals.remove(goal);
+    } else if (goals.length < OnboardingProfile.maxGoals) {
+      goals.add(goal);
+    }
+    _update(_profile.copyWith(goals: goals));
+  }
 
   void selectDisciplineLevel(DisciplineLevel level) =>
       _update(_profile.copyWith(disciplineLevel: level));
