@@ -112,15 +112,22 @@ weekdays and an IANA timezone; `get_today_habits` evaluates both on the server,
 including daylight-saving and midnight boundaries. The client never decides
 that an inactive local day is eligible for XP.
 
-Completion and undo use `set_habit_completion_v2`. A unique habit/date index is
-the final duplicate guard, and the XP recorded on each completion is the exact
-amount reversed by undo. Direct completion writes are revoked from the client.
+Completion and undo use `set_habit_completion_v2`. Its exact public signature is
+`(uuid, boolean, text)` and it returns `completion_date`, `changed`, and
+`total_xp`. The authenticated session supplies identity; the server reads the
+owned habit's timezone, local date, active days, and XP value so none can be
+forged by the client. A named unique habit/date constraint is the final
+duplicate guard, and the XP stored on each completion is the exact amount
+reversed by undo. Direct completion writes are revoked from the client.
 Reordering and permanent deletion also use ownership-checked functions;
 deletion removes that habit's history and reverses its recorded XP atomically.
 Existing owner-only RLS remains enabled for both tables.
 
-Database ordering is stored as `habits.sort_position` and exposed by the same
-name from `get_today_habits`. The old `position` identifier is accepted only as
+Database ordering is stored only as `habits.sort_position` and exposed by the
+same name from `get_today_habits`. Reorder sends the user's complete habit
+library and the server locks it before atomically assigning `0..n`; active,
+paused, archived, and Home views therefore preserve one shared order. The old
+`position` identifier is accepted only as
 one-time recovery input for databases where the first Sprint 4 migration
 partially applied; application queries and RPCs never depend on it.
 

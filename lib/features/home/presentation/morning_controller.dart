@@ -61,24 +61,33 @@ class MorningController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _repository.setHabitCompletion(
+      final result = await _repository.setHabitCompletion(
         habitId: habitId,
         date: current.forDate,
         isComplete: true,
       );
-    } catch (_) {
+      if (!result.changed) {
+        _snapshot = await _repository.load(result.completionDate);
+        _updatingHabitIds.remove(habitId);
+        notifyListeners();
+        return false;
+      }
+
+      final confirmedHabits = [...current.habits]
+        ..[index] = habit.copyWith(isComplete: true);
+      _snapshot = current.copyWith(
+        habits: confirmedHabits,
+        totalXp: result.totalXp,
+        forDate: result.completionDate,
+      );
+    } catch (error, stackTrace) {
+      _logFailure('habit completion', error, stackTrace);
       _errorMessage = 'That promise was not saved. Tap again to retry.';
       _updatingHabitIds.remove(habitId);
       notifyListeners();
       return false;
     }
 
-    final confirmedHabits = [...current.habits]
-      ..[index] = habit.copyWith(isComplete: true);
-    _snapshot = current.copyWith(
-      habits: confirmedHabits,
-      totalXp: (current.totalXp + habit.xp).clamp(0, 1 << 31),
-    );
     _updatingHabitIds.remove(habitId);
     _recentlyCompletedHabitIds.add(habitId);
     _scheduleConfirmedStateDismissal(habitId);
@@ -86,7 +95,8 @@ class MorningController extends ChangeNotifier {
 
     try {
       _snapshot = await _repository.load(current.forDate);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _logFailure('morning refresh after completion', error, stackTrace);
       _errorMessage =
           'Your promise is saved. Live streak details will refresh shortly.';
     }
@@ -105,12 +115,29 @@ class MorningController extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      await _repository.setHabitCompletion(
+      final result = await _repository.setHabitCompletion(
         habitId: habitId,
         date: current.forDate,
         isComplete: false,
       );
-    } catch (_) {
+      if (!result.changed) {
+        _snapshot = await _repository.load(result.completionDate);
+        _updatingHabitIds.remove(habitId);
+        notifyListeners();
+        return false;
+      }
+
+      _confirmedStateTimers.remove(habitId)?.cancel();
+      _recentlyCompletedHabitIds.remove(habitId);
+      final restored = [...current.habits]
+        ..[index] = habit.copyWith(isComplete: false);
+      _snapshot = current.copyWith(
+        habits: restored,
+        totalXp: result.totalXp,
+        forDate: result.completionDate,
+      );
+    } catch (error, stackTrace) {
+      _logFailure('habit completion undo', error, stackTrace);
       _errorMessage =
           'That completion could not be undone. Your saved progress is unchanged.';
       _updatingHabitIds.remove(habitId);
@@ -118,20 +145,13 @@ class MorningController extends ChangeNotifier {
       return false;
     }
 
-    _confirmedStateTimers.remove(habitId)?.cancel();
-    _recentlyCompletedHabitIds.remove(habitId);
-    final restored = [...current.habits]
-      ..[index] = habit.copyWith(isComplete: false);
-    _snapshot = current.copyWith(
-      habits: restored,
-      totalXp: (current.totalXp - habit.xp).clamp(0, 1 << 31),
-    );
     _updatingHabitIds.remove(habitId);
     notifyListeners();
 
     try {
       _snapshot = await _repository.load(current.forDate);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _logFailure('morning refresh after completion undo', error, stackTrace);
       _errorMessage =
           'The completion was undone. Live streak details will refresh shortly.';
     }
@@ -145,6 +165,16 @@ class MorningController extends ChangeNotifier {
       _confirmedStateTimers.remove(habitId);
       if (_recentlyCompletedHabitIds.remove(habitId)) notifyListeners();
     });
+  }
+
+  static void _logFailure(
+    String operation,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    if (!kDebugMode) return;
+    debugPrint('[habits] $operation failed: $error');
+    debugPrintStack(stackTrace: stackTrace);
   }
 
   @override

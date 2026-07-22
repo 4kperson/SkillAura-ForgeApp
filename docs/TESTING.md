@@ -61,6 +61,10 @@ Habit domain and controller tests cover full-row parsing, active and missed
 weekdays, paused/archived eligibility, reminder serialization, validation,
 recorded-XP history, create, edit, pause/resume, archive/restore, delete,
 reorder persistence, reorder rollback, failed save recovery, and load failure.
+Stabilization coverage adds first-to-last, last-to-first, middle movement,
+cold reload persistence, Home/Manager agreement, lifecycle changes, duplicate
+position repair, inactive-day rejection, RPC mismatch, RLS rejection,
+duplicate completion, and one-time XP award/reversal cases.
 
 Habit Management widget coverage verifies create, edit, weekday and reminder
 changes, pause/resume, archive/restore, permanent delete confirmation, history,
@@ -72,5 +76,6 @@ owned-reminder cleanup, granted scheduling, and disabled-state cancellation.
 The migration recovery tests enforce the permanent `sort_position` contract,
 reject the unsafe return-table identifier, and verify that the repair contains
 no table drops, truncation, completion deletion, profile XP update, or other XP
-mutation. Before release, migrations 001, repair 003, and compatibility 002 are
-executed twice against PostgreSQL to verify syntax and rerun safety.
+mutation. Before release, migrations 001, repair 003, compatibility 002, and
+stabilization 004 are executed twice against PostgreSQL to verify syntax and
+rerun safety.

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:forge_app/app/app.dart';
 import 'package:forge_app/features/auth/data/email_confirmation_link_source.dart';
 import 'package:forge_app/features/auth/presentation/session_controller.dart';
+import 'package:forge_app/features/habits/domain/habit.dart';
 import 'package:forge_app/features/home/data/morning_repository.dart';
 import 'package:forge_app/features/home/domain/morning_snapshot.dart';
 import 'package:forge_app/features/onboarding/data/notification_permission_service.dart';
@@ -630,9 +631,10 @@ class _FakeMorningRepository implements MorningRepository {
   );
 
   @override
-  Future<void> setHabitCompletion({
+  Future<HabitCompletionResult> setHabitCompletion({
     required String habitId,
     required DateTime date,
     required bool isComplete,
-  }) async {}
+  }) async =>
+      HabitCompletionResult(completionDate: date, changed: true, totalXp: 0);
 }

@@ -271,7 +271,7 @@ class _InteractiveMorningRepository implements MorningRepository {
   Future<MorningSnapshot> load(DateTime date) async => value;
 
   @override
-  Future<void> setHabitCompletion({
+  Future<HabitCompletionResult> setHabitCompletion({
     required String habitId,
     required DateTime date,
     required bool isComplete,
@@ -286,6 +286,11 @@ class _InteractiveMorningRepository implements MorningRepository {
       totalXp: value.totalXp + (isComplete ? habit.xp : -habit.xp),
       currentStreak: isComplete ? 7 : 6,
       longestStreak: isComplete ? 9 : 9,
+    );
+    return HabitCompletionResult(
+      completionDate: value.forDate,
+      changed: true,
+      totalXp: value.totalXp,
     );
   }
 }

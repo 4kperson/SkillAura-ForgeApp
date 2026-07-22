@@ -2,6 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:forge_app/features/habits/data/habit_repository.dart';
 import 'package:forge_app/features/habits/domain/habit.dart';
 import 'package:forge_app/features/habits/presentation/habit_engine_controller.dart';
+import 'package:forge_app/features/home/data/morning_repository.dart';
+import 'package:forge_app/features/home/domain/morning_snapshot.dart';
+import 'package:forge_app/features/home/presentation/morning_controller.dart';
 
 void main() {
   test('create and edit reload confirmed server state', () async {
@@ -67,6 +70,112 @@ void main() {
       'three',
       'one',
     ]);
+  });
+
+  test('reorders last to first and a middle item deterministically', () async {
+    final repository = _MemoryHabitRepository()
+      ..seed(_habit('one', 'One', sortPosition: 0))
+      ..seed(_habit('two', 'Two', sortPosition: 1))
+      ..seed(_habit('three', 'Three', sortPosition: 2))
+      ..seed(_habit('four', 'Four', sortPosition: 3));
+    final controller = HabitEngineController(repository);
+    await controller.initialize();
+
+    expect(await controller.reorderActive(3, 0), isTrue);
+    expect(repository.lastOrder, ['four', 'one', 'two', 'three']);
+
+    expect(await controller.reorderActive(1, 3), isTrue);
+    expect(repository.lastOrder, ['four', 'two', 'three', 'one']);
+  });
+
+  test('reorder persists after a fresh controller reload', () async {
+    final repository = _MemoryHabitRepository()
+      ..seed(_habit('one', 'One', sortPosition: 0))
+      ..seed(_habit('two', 'Two', sortPosition: 1))
+      ..seed(_habit('three', 'Three', sortPosition: 2));
+    final firstController = HabitEngineController(repository);
+    await firstController.initialize();
+    expect(await firstController.reorderActive(2, 0), isTrue);
+
+    final restoredController = HabitEngineController(repository);
+    await restoredController.initialize();
+
+    expect(restoredController.library!.active.map((habit) => habit.id), [
+      'three',
+      'one',
+      'two',
+    ]);
+  });
+
+  test('Home and Habit Manager load the same manual order', () async {
+    final repository = _MemoryHabitRepository()
+      ..seed(_habit('one', 'One', sortPosition: 0))
+      ..seed(_habit('two', 'Two', sortPosition: 1))
+      ..seed(_habit('three', 'Three', sortPosition: 2));
+    final manager = HabitEngineController(repository);
+    await manager.initialize();
+    expect(await manager.reorderActive(0, 2), isTrue);
+
+    final home = MorningController(_HabitBackedMorningRepository(repository));
+    addTearDown(home.dispose);
+    await home.initialize();
+
+    expect(home.snapshot!.habits.map((habit) => habit.id), [
+      'two',
+      'three',
+      'one',
+    ]);
+    expect(
+      home.snapshot!.habits.map((habit) => habit.id),
+      manager.library!.active.map((habit) => habit.id),
+    );
+  });
+
+  test('pause, resume, archive, and restore preserve manual order', () async {
+    final repository = _MemoryHabitRepository()
+      ..seed(_habit('one', 'One', sortPosition: 0))
+      ..seed(_habit('two', 'Two', sortPosition: 1))
+      ..seed(_habit('three', 'Three', sortPosition: 2));
+    final controller = HabitEngineController(repository);
+    await controller.initialize();
+
+    expect(await controller.setPaused('two', paused: true), isTrue);
+    expect(await controller.reorderActive(1, 0), isTrue);
+    expect(repository.lastOrder, ['three', 'one', 'two']);
+    expect(await controller.setPaused('two', paused: false), isTrue);
+    expect(controller.library!.active.map((habit) => habit.id), [
+      'three',
+      'one',
+      'two',
+    ]);
+
+    expect(await controller.setArchived('one', archived: true), isTrue);
+    expect(await controller.reorderActive(1, 0), isTrue);
+    expect(repository.lastOrder, ['two', 'three', 'one']);
+    expect(await controller.setArchived('one', archived: false), isTrue);
+    expect(controller.library!.active.map((habit) => habit.id), [
+      'two',
+      'three',
+      'one',
+    ]);
+  });
+
+  test('reorder repairs duplicate positions into a sequential order', () async {
+    final repository = _MemoryHabitRepository()
+      ..seed(_habit('one', 'One', sortPosition: 0))
+      ..seed(_habit('two', 'Two', sortPosition: 0))
+      ..seed(_habit('three', 'Three', sortPosition: 5));
+    final controller = HabitEngineController(repository);
+    await controller.initialize();
+
+    expect(await controller.reorderActive(2, 0), isTrue);
+
+    expect(controller.library!.habits.map((habit) => habit.sortPosition), [
+      0,
+      1,
+      2,
+    ]);
+    expect(repository.lastOrder, ['three', 'one', 'two']);
   });
 
   test(
@@ -235,4 +344,32 @@ class _MemoryHabitRepository implements HabitRepository {
   void _failIfNeeded() {
     if (failMutations) throw StateError('offline');
   }
+}
+
+class _HabitBackedMorningRepository implements MorningRepository {
+  _HabitBackedMorningRepository(this.repository);
+
+  final _MemoryHabitRepository repository;
+
+  @override
+  Future<MorningSnapshot> load(DateTime date) async {
+    final library = await repository.load();
+    return MorningSnapshot(
+      displayName: 'Builder',
+      identityLabel: 'more disciplined',
+      dayNumber: 1,
+      totalXp: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      habits: library.active,
+      forDate: DateTime(date.year, date.month, date.day),
+    );
+  }
+
+  @override
+  Future<HabitCompletionResult> setHabitCompletion({
+    required String habitId,
+    required DateTime date,
+    required bool isComplete,
+  }) => throw UnimplementedError();
 }

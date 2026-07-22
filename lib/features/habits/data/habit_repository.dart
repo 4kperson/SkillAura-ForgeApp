@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/habit.dart';
@@ -60,8 +61,7 @@ class SupabaseHabitRepository implements HabitRepository {
           .from('habits')
           .select(_habitColumns)
           .eq('user_id', userId)
-          .order('sort_position')
-          .order('created_at'),
+          .order('sort_position'),
       _client.from('profiles').select('timezone').eq('id', userId).single(),
     ]);
     final rows = (responses[0] as List).cast<Map<String, dynamic>>();
@@ -80,7 +80,6 @@ class SupabaseHabitRepository implements HabitRepository {
         .from('habits')
         .select('sort_position')
         .eq('user_id', userId)
-        .eq('archived', false)
         .order('sort_position', ascending: false)
         .limit(1);
     final nextPosition = orderRows.isEmpty
@@ -146,8 +145,17 @@ class SupabaseHabitRepository implements HabitRepository {
       _client.rpc('delete_habit', params: {'p_habit_id': habitId});
 
   @override
-  Future<void> reorder(List<String> habitIds) =>
-      _client.rpc('reorder_habits', params: {'p_habit_ids': habitIds});
+  Future<void> reorder(List<String> habitIds) async {
+    try {
+      await _client.rpc('reorder_habits', params: {'p_habit_ids': habitIds});
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('[habits] reorder RPC failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      rethrow;
+    }
+  }
 
   @override
   Future<HabitCompletionResult> setCompletion({

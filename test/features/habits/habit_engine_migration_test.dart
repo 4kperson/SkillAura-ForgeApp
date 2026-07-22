@@ -6,6 +6,7 @@ void main() {
   late String migration;
   late String repairMigration;
   late String compatibilityMigration;
+  late String stabilizationMigration;
 
   setUpAll(() {
     migration = File(
@@ -16,6 +17,9 @@ void main() {
     ).readAsStringSync().toLowerCase();
     repairMigration = File(
       'supabase/migrations/202607220003_habit_engine_sort_position_repair.sql',
+    ).readAsStringSync().toLowerCase();
+    stabilizationMigration = File(
+      'supabase/migrations/202607220004_habit_engine_stabilization.sql',
     ).readAsStringSync().toLowerCase();
   });
 
@@ -87,6 +91,24 @@ void main() {
         'revoke insert, update, delete on public.habit_completions from authenticated',
       ),
     );
+    expect(
+      stabilizationMigration,
+      contains(
+        'on conflict on constraint habit_completions_habit_completion_date_unique',
+      ),
+    );
+    expect(
+      stabilizationMigration,
+      contains('returning saved_completion.xp_awarded into v_awarded'),
+    );
+    expect(
+      stabilizationMigration,
+      contains('greatest(0, p.total_xp - v_awarded)'),
+    );
+    expect(
+      stabilizationMigration,
+      isNot(contains('on conflict (habit_id, completion_date)')),
+    );
   });
 
   test('server evaluates active days in each habit timezone', () {
@@ -109,5 +131,63 @@ void main() {
       compatibilityMigration,
       contains('c.completion_date = v_completion_date'),
     );
+  });
+
+  test('stabilization migration is additive, rerunnable, and data safe', () {
+    expect(stabilizationMigration, contains('create or replace function'));
+    expect(stabilizationMigration, contains('if not exists'));
+    expect(stabilizationMigration, isNot(contains('drop table')));
+    expect(stabilizationMigration, isNot(contains('truncate ')));
+    expect(
+      stabilizationMigration,
+      isNot(contains('delete from public.habits')),
+    );
+    expect(stabilizationMigration, isNot(contains('set total_xp = 0')));
+  });
+
+  test(
+    'manual order is normalized and atomically persisted for all habits',
+    () {
+      expect(stabilizationMigration, contains('row_number() over'));
+      expect(stabilizationMigration, contains('repaired_position'));
+      expect(
+        stabilizationMigration,
+        contains('habit order must contain every owned habit exactly once'),
+      );
+      expect(stabilizationMigration, contains('for update'));
+      expect(
+        stabilizationMigration,
+        contains('set sort_position = requested.ordinality::integer - 1'),
+      );
+      expect(stabilizationMigration, contains('get diagnostics v_updated'));
+    },
+  );
+
+  test('Home orders exclusively by the persisted manual position', () {
+    final todayFunction = RegExp(
+      r'create or replace function public\.get_today_habits\(\).*?revoke all on function public\.get_today_habits',
+      dotAll: true,
+    ).firstMatch(stabilizationMigration)!.group(0)!;
+
+    expect(todayFunction, contains('order by h.sort_position;'));
+    expect(todayFunction, isNot(contains('order by h.reminder_time')));
+    expect(todayFunction, isNot(contains('order by h.created_at')));
+    expect(todayFunction, isNot(contains('order by h.title')));
+  });
+
+  test('owner checks protect completion and reorder security-definer RPCs', () {
+    expect(
+      stabilizationMigration,
+      contains('and h.user_id = v_user_id\n  for update'),
+    );
+    expect(
+      stabilizationMigration,
+      contains('habit not found or not owned by the current user'),
+    );
+    expect(
+      stabilizationMigration,
+      contains('habit order contains a habit not owned by the current user'),
+    );
+    expect(stabilizationMigration, contains("using errcode = '42501'"));
   });
 }

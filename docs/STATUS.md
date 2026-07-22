@@ -236,3 +236,21 @@ Status: complete locally on 2026-07-22.
   completions, user-edited habits, policies, constraints, indexes, or triggers.
 - Documented the required SQL Editor recovery order before compatibility
   migration 002 is applied.
+
+## Milestone: completion and ordering stabilization
+
+Status: complete locally on 2026-07-22.
+
+- Reproduced live completion SQLSTATE `42702`: `completion_date` was ambiguous
+  between the RPC output variable and the conflict-target table column.
+- Added migration 004, which adopts the existing habit/date unique index as a
+  named constraint and uses that constraint for unambiguous, duplicate-safe
+  completion and exact stored-XP reversal.
+- Normalized duplicate/gapped `sort_position` values while preserving relative
+  order, then made reorder validate, lock, and update the user's entire habit
+  library atomically.
+- Removed secondary client and Home ordering so `sort_position` is the single
+  source of truth across active, paused, archived, and Today's Mission views.
+- Made Home consume the server's confirmed `changed`, local date, and total XP
+  result before showing completion or Undo state, with safe debug exception and
+  stack-trace logging.

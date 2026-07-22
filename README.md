@@ -76,12 +76,17 @@ Recover in the Supabase SQL Editor in this exact order:
 1. Rerun the updated `202607220001_habit_engine.sql`.
 2. Run `202607220003_habit_engine_sort_position_repair.sql`.
 3. Run `202607220002_habit_engine_compatibility.sql` last.
+4. Run `202607220004_habit_engine_stabilization.sql`.
 
 The repair copies a partially created legacy `position` value only when the
 new `sort_position` is null. It does not remove the legacy column, overwrite
 user order, mutate completion history, or change XP. All three migrations are
 safe to rerun and their policy, constraint, index, trigger, and function guards
-prevent duplicate objects.
+prevent duplicate objects. If the live project has already completed the
+documented `001 -> 003 -> 002` recovery, run only migration `004` next. It
+repairs duplicate/gapped manual positions without changing their relative
+order, removes the completion RPC's PL/pgSQL ambiguity, and makes reorder a
+single owner-checked transaction across the user's complete habit library.
 
 ## Daily reminders
 

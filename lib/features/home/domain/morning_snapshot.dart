@@ -66,6 +66,7 @@ class MorningSnapshot {
     int? currentStreak,
     int? longestStreak,
     List<Habit>? habits,
+    DateTime? forDate,
     bool? notificationsEnabled,
   }) => MorningSnapshot(
     displayName: displayName,
@@ -75,7 +76,7 @@ class MorningSnapshot {
     currentStreak: currentStreak ?? this.currentStreak,
     longestStreak: longestStreak ?? this.longestStreak,
     habits: habits ?? this.habits,
-    forDate: forDate,
+    forDate: forDate ?? this.forDate,
     notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
   );
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../habits/domain/habit.dart';
@@ -6,7 +7,7 @@ import '../domain/morning_snapshot.dart';
 abstract interface class MorningRepository {
   Future<MorningSnapshot> load(DateTime date);
 
-  Future<void> setHabitCompletion({
+  Future<HabitCompletionResult> setHabitCompletion({
     required String habitId,
     required DateTime date,
     required bool isComplete,
@@ -65,19 +66,47 @@ class SupabaseMorningRepository implements MorningRepository {
   }
 
   @override
-  Future<void> setHabitCompletion({
+  Future<HabitCompletionResult> setHabitCompletion({
     required String habitId,
     required DateTime date,
     required bool isComplete,
   }) async {
-    await _client.rpc(
-      'set_habit_completion_v2',
-      params: {
-        'p_habit_id': habitId,
-        'p_is_complete': isComplete,
-        'p_source': 'home',
-      },
-    );
+    try {
+      final response = await _client.rpc(
+        'set_habit_completion_v2',
+        params: {
+          'p_habit_id': habitId,
+          'p_is_complete': isComplete,
+          'p_source': 'home',
+        },
+      );
+      final rows = (response as List).cast<Map<String, dynamic>>();
+      if (rows.length != 1) {
+        throw const PostgrestException(
+          message: 'The completion RPC returned an unexpected result.',
+          code: 'FORGE_RPC_CONTRACT',
+        );
+      }
+      final result = HabitCompletionResult.fromJson(rows.single);
+      if (kDebugMode) {
+        debugPrint(
+          '[habits] completion RPC confirmed '
+          'habit=$habitId complete=$isComplete changed=${result.changed} '
+          'date=${result.completionDate.toIso8601String()} '
+          'totalXp=${result.totalXp}',
+        );
+      }
+      return result;
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint(
+          '[habits] completion RPC failed '
+          'habit=$habitId complete=$isComplete: $error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      rethrow;
+    }
   }
 
   static String _firstName(String? displayName) {
@@ -126,9 +155,13 @@ class EmptyMorningRepository implements MorningRepository {
   );
 
   @override
-  Future<void> setHabitCompletion({
+  Future<HabitCompletionResult> setHabitCompletion({
     required String habitId,
     required DateTime date,
     required bool isComplete,
-  }) async {}
+  }) async => HabitCompletionResult(
+    completionDate: DateTime(date.year, date.month, date.day),
+    changed: true,
+    totalXp: 0,
+  );
 }

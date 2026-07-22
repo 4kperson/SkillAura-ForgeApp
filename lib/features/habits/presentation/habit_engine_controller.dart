@@ -112,9 +112,10 @@ class HabitEngineController extends ChangeNotifier {
     final moved = active.removeAt(oldIndex);
     active.insert(insertion, moved);
 
+    final orderedHabits = [...active, ...current.paused, ...current.archived];
     final positions = {
-      for (var index = 0; index < active.length; index++)
-        active[index].id: index,
+      for (var index = 0; index < orderedHabits.length; index++)
+        orderedHabits[index].id: index,
     };
     final optimistic = [
       for (final habit in current.habits)
@@ -128,7 +129,9 @@ class HabitEngineController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _repository.reorder(active.map((habit) => habit.id).toList());
+      await _repository.reorder(
+        orderedHabits.map((habit) => habit.id).toList(growable: false),
+      );
       await _reloadAfterMutation();
       return true;
     } catch (_) {
@@ -180,8 +183,6 @@ class HabitEngineController extends ChangeNotifier {
   }
 
   static int _compareHabits(Habit a, Habit b) {
-    final order = a.sortPosition.compareTo(b.sortPosition);
-    if (order != 0) return order;
-    return a.title.compareTo(b.title);
+    return a.sortPosition.compareTo(b.sortPosition);
   }
 }

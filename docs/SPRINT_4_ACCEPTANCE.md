@@ -5,6 +5,8 @@
 - Rerun `202607220001_habit_engine.sql` in the Supabase SQL Editor.
 - Apply `202607220003_habit_engine_sort_position_repair.sql` next.
 - Apply `202607220002_habit_engine_compatibility.sql` last.
+- Apply `202607220004_habit_engine_stabilization.sql` after that. For a project
+  that already ran `001 -> 003 -> 002`, apply only `004` now.
 - Confirm the verification results show RLS enabled and the expected owner-only
   policies and functions.
 - Install a fresh debug build and sign in to an account that completed
@@ -29,6 +31,7 @@
 ## Lifecycle and ordering
 
 - Drag active habits into a new order and confirm Home uses that order.
+- Leave Habit Management, restart Forge, and confirm the exact same order.
 - Pause a habit and confirm it leaves Home but appears under **Paused**.
 - Resume it and confirm it returns on an active weekday.
 - Archive a habit and confirm it appears under **Archive** with history intact.
@@ -41,6 +44,8 @@
 - Complete a Today's Mission habit once and confirm XP changes once.
 - Tap rapidly while saving and confirm only one completion is recorded.
 - Use **Undo** and confirm the mission and exact previous XP return.
+- Repeat completion and Undo attempts and confirm neither XP operation happens
+  twice.
 - Open habit history and confirm date, confirmation time, and awarded XP.
 - Disable connectivity and attempt completion; confirm Home remains incomplete
   and offers a recoverable message.
