@@ -211,3 +211,47 @@ class HabitValidationException implements Exception {
   @override
   String toString() => message;
 }
+
+class EmptyHabitRepository implements HabitRepository {
+  const EmptyHabitRepository();
+
+  @override
+  Future<HabitLibrary> load() async =>
+      const HabitLibrary(habits: [], timeZone: 'America/New_York');
+
+  @override
+  Future<Habit> create(HabitDraft draft) => _unavailable();
+
+  @override
+  Future<Habit> update(String habitId, HabitDraft draft) => _unavailable();
+
+  @override
+  Future<Habit> setPaused(String habitId, {required bool paused}) =>
+      _unavailable();
+
+  @override
+  Future<Habit> setArchived(String habitId, {required bool archived}) =>
+      _unavailable();
+
+  @override
+  Future<void> delete(String habitId) => _unavailable();
+
+  @override
+  Future<void> reorder(List<String> habitIds) => _unavailable();
+
+  @override
+  Future<HabitCompletionResult> setCompletion({
+    required String habitId,
+    required bool isComplete,
+    required String source,
+  }) => _unavailable();
+
+  @override
+  Future<List<HabitCompletion>> loadHistory(
+    String habitId, {
+    int limit = 60,
+  }) async => const [];
+
+  static Future<T> _unavailable<T>() async =>
+      throw StateError('Habit persistence is not configured.');
+}

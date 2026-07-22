@@ -37,7 +37,7 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
     final profile = response == null
         ? const OnboardingProfile()
         : OnboardingProfile.fromJson(response);
-    if (profile.isCompleted) await _persistCompletion(profile);
+    if (profile.isCompleted) await _ensureStarterPlan(profile);
     return profile;
   }
 
@@ -73,11 +73,30 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
         'p_sleep_time': _minutesToTime(profile.sleepTimeMinutes),
         'p_notification_state': profile.notificationPreference.name,
         'p_plan': [
-          for (final habit in profile.recommendedHabits) habit.toJson(),
+          for (var index = 0; index < profile.recommendedHabits.length; index++)
+            {
+              ...profile.recommendedHabits[index].toJson(),
+              'timezone': profile.timeZone,
+              'position': index,
+            },
         ],
       },
     );
   }
+
+  Future<void> _ensureStarterPlan(OnboardingProfile profile) => _client.rpc(
+    'ensure_onboarding_habits',
+    params: {
+      'p_plan': [
+        for (var index = 0; index < profile.recommendedHabits.length; index++)
+          {
+            ...profile.recommendedHabits[index].toJson(),
+            'timezone': profile.timeZone,
+            'position': index,
+          },
+      ],
+    },
+  );
 
   static String _minutesToTime(int minutes) {
     final normalized = minutes.clamp(0, 1439);

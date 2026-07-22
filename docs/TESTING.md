@@ -61,3 +61,10 @@ Habit domain and controller tests cover full-row parsing, active and missed
 weekdays, paused/archived eligibility, reminder serialization, validation,
 recorded-XP history, create, edit, pause/resume, archive/restore, delete,
 reorder persistence, reorder rollback, failed save recovery, and load failure.
+
+Habit Management widget coverage verifies create, edit, weekday and reminder
+changes, pause/resume, archive/restore, permanent delete confirmation, history,
+starter-promise editing, loading, failure/retry, empty state, and compact-phone
+layout. Home coverage verifies an immediate refresh after management and the
+server-backed Undo path. Notification coverage verifies distinct weekly IDs,
+owned-reminder cleanup, granted scheduling, and disabled-state cancellation.

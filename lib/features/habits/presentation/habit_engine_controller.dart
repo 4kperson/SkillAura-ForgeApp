@@ -107,8 +107,8 @@ class HabitEngineController extends ChangeNotifier {
     if (current == null || _reordering) return false;
     final active = [...current.active];
     if (oldIndex < 0 || oldIndex >= active.length) return false;
-    final insertion = newIndex > oldIndex ? newIndex - 1 : newIndex;
-    if (insertion < 0 || insertion >= active.length) return false;
+    final insertion = newIndex;
+    if (insertion < 0 || insertion > active.length) return false;
     final moved = active.removeAt(oldIndex);
     active.insert(insertion, moved);
 

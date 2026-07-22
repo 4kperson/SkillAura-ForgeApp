@@ -70,20 +70,27 @@ server functions so XP and history remain atomic. The migration is additive,
 idempotent, and contains verification queries for columns, RLS, policies,
 indexes, and functions.
 
+Then run `202607220002_habit_engine_compatibility.sql`. It upgrades future
+onboarding plans to the same editable habit contract, preserves starter habits
+the user already customized, and repairs completion undo for projects that
+already applied the first Sprint 4 migration. Both migrations are required,
+additive, idempotent, and contain no table drops or truncation.
+
 ## Daily reminders
 
 Forge requests notification access only after its onboarding explanation. A
-granted choice schedules the three personalized starter commitments at their
-configured local times. Denied and skipped choices cancel Forge reminders and
-remain persisted in Supabase, so cold starts and future scheduling respect the
-user's decision. Android uses inexact daily alarms to avoid requesting exact
-alarm access.
+granted choice schedules the confirmed active habit plan at its configured
+weekdays, times, and IANA timezones. Denied and skipped choices cancel Forge
+reminders and remain persisted in Supabase, so cold starts and future scheduling
+respect the user's decision. Android uses inexact alarms to avoid requesting
+exact alarm access.
 
 Notification startup is ordered: initialize time zones, initialize the native
 plugin with `@drawable/ic_stat_forge`, create the `daily_promises` channel, and
-then cancel or schedule Forge-owned IDs `4100` through `4102`. Cancelling when
-no reminders exist is a successful no-op. Cleanup failures are logged in debug
-builds but never block a denied or skipped onboarding choice.
+then cancel or schedule Forge-owned IDs. Onboarding uses `4100` through `4102`;
+the Habit Engine uses deterministic IDs in a separate reserved range. Cancelling
+when no reminders exist is a successful no-op. Cleanup failures are logged in
+debug builds but never block a denied or skipped onboarding choice.
 
 Denied permission and **Not now** share one respectful recovery experience.
 Users can continue directly to Home or ask Forge to enable reminders. Forge

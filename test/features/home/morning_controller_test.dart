@@ -90,6 +90,26 @@ void main() {
       expect(controller.snapshot?.totalXp, 240);
     },
   );
+
+  test(
+    'undo reverses the confirmed completion and its XP exactly once',
+    () async {
+      final repository = _MemoryMorningRepository(_snapshot());
+      final controller = MorningController(repository);
+      addTearDown(controller.dispose);
+      await controller.initialize();
+
+      expect(await controller.toggleHabit('focus'), isTrue);
+      expect(controller.snapshot?.totalXp, 240);
+      expect(await controller.undoHabit('focus'), isTrue);
+
+      expect(controller.snapshot?.habits.first.isComplete, isFalse);
+      expect(controller.snapshot?.totalXp, 200);
+      expect(repository.completionCalls, 2);
+      expect(await controller.undoHabit('focus'), isFalse);
+      expect(repository.completionCalls, 2);
+    },
+  );
 }
 
 MorningSnapshot _snapshot() => MorningSnapshot(

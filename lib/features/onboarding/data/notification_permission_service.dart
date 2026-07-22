@@ -95,6 +95,8 @@ class DeviceNotificationPermissionService
        _permissions = permissions ?? PermissionHandlerNotificationGateway();
 
   static const reminderIds = <int>[4100, 4101, 4102];
+  static const habitReminderIdStart = 1000000000;
+  static const habitReminderIdEnd = 1999999999;
 
   final LocalNotificationPlatform _platform;
   final NativeNotificationPermissionGateway _permissions;
@@ -236,6 +238,78 @@ class DeviceNotificationPermissionService
       schedulingState: schedulingState,
       cancellationState: cancellationState,
     );
+  }
+
+  Future<bool> synchronizeHabitPlan({
+    required String timeZone,
+    required NotificationPreference permissionState,
+    required List<HabitReminder> reminders,
+  }) async {
+    try {
+      await _ensureInitialized(timeZone);
+    } catch (_) {
+      return false;
+    }
+
+    Set<int> pendingIds;
+    try {
+      pendingIds = await _runOperation(
+        'habit reminder lookup',
+        _platform.pendingNotificationIds,
+      );
+    } catch (_) {
+      return false;
+    }
+    final ownedIds = pendingIds
+        .where(
+          (id) =>
+              reminderIds.contains(id) ||
+              (id >= habitReminderIdStart && id <= habitReminderIdEnd),
+        )
+        .toSet();
+    var cancellationFailed = false;
+    for (final id in ownedIds) {
+      try {
+        await _runOperation(
+          'habit reminder cancellation (id $id)',
+          () => _platform.cancel(id),
+        );
+      } catch (_) {
+        cancellationFailed = true;
+      }
+    }
+    if (cancellationFailed) return false;
+    if (permissionState != NotificationPreference.granted) return true;
+
+    final scheduledIds = <int>[];
+    try {
+      for (final reminder in reminders) {
+        await _runOperation(
+          'habit reminder scheduling (id ${reminder.id})',
+          () => _platform.schedule(
+            reminder.id,
+            DailyReminder(
+              title: reminder.title,
+              hour: reminder.hour,
+              minute: reminder.minute,
+              weekday: reminder.weekday,
+              timeZone: reminder.timeZone,
+            ),
+          ),
+        );
+        scheduledIds.add(reminder.id);
+      }
+      return true;
+    } catch (_) {
+      for (final id in scheduledIds) {
+        try {
+          await _platform.cancel(id);
+        } catch (_) {
+          // The original scheduling failure has already been logged.
+        }
+      }
+      return false;
+    }
   }
 
   Future<void> _ensureInitialized(String fallbackTimeZone) async {
@@ -477,7 +551,12 @@ class FlutterLocalNotificationPlatform implements LocalNotificationPlatform {
         id: id,
         title: 'Your next promise is ready',
         body: reminder.title,
-        scheduledDate: _nextOccurrence(reminder.hour, reminder.minute),
+        scheduledDate: _nextOccurrence(
+          reminder.hour,
+          reminder.minute,
+          reminder.weekday,
+          reminder.timeZone,
+        ),
         notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             _channelId,
@@ -496,31 +575,44 @@ class FlutterLocalNotificationPlatform implements LocalNotificationPlatform {
         // Daily reminders do not need exact-alarm permission. Inexact delivery
         // remains compatible with modern Android background restrictions.
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
+        matchDateTimeComponents: reminder.weekday == null
+            ? DateTimeComponents.time
+            : DateTimeComponents.dayOfWeekAndTime,
         payload: '/home',
       );
 
-  static time_zone.TZDateTime _nextOccurrence(int hour, int minute) {
-    final now = time_zone.TZDateTime.now(time_zone.local);
-    var scheduled = time_zone.TZDateTime(
-      time_zone.local,
-      now.year,
-      now.month,
-      now.day,
-      hour,
-      minute,
-    );
-    if (!scheduled.isAfter(now)) {
-      scheduled = time_zone.TZDateTime(
-        time_zone.local,
+  static time_zone.TZDateTime _nextOccurrence(
+    int hour,
+    int minute,
+    int? weekday,
+    String? timeZone,
+  ) {
+    final location = timeZone == null
+        ? time_zone.local
+        : time_zone.getLocation(timeZone);
+    final now = time_zone.TZDateTime.now(location);
+    for (var offset = 0; offset <= 7; offset++) {
+      final scheduled = time_zone.TZDateTime(
+        location,
         now.year,
         now.month,
-        now.day + 1,
+        now.day + offset,
         hour,
         minute,
       );
+      if ((weekday == null || scheduled.weekday == weekday) &&
+          scheduled.isAfter(now)) {
+        return scheduled;
+      }
     }
-    return scheduled;
+    return time_zone.TZDateTime(
+      location,
+      now.year,
+      now.month,
+      now.day + 7,
+      hour,
+      minute,
+    );
   }
 }
 
@@ -581,9 +673,31 @@ class DailyReminder {
     required this.title,
     required this.hour,
     required this.minute,
+    this.weekday,
+    this.timeZone,
   });
 
   final String title;
   final int hour;
   final int minute;
+  final int? weekday;
+  final String? timeZone;
+}
+
+class HabitReminder {
+  const HabitReminder({
+    required this.id,
+    required this.title,
+    required this.hour,
+    required this.minute,
+    required this.weekday,
+    required this.timeZone,
+  });
+
+  final int id;
+  final String title;
+  final int hour;
+  final int minute;
+  final int weekday;
+  final String timeZone;
 }

@@ -162,6 +162,45 @@ void main() {
     expect(find.text('Make today count.'), findsNothing);
   });
 
+  testWidgets('habit manager redirects signed-out users', (tester) async {
+    final signedOutSource = _FakeSessionSource();
+    final signedOut = SessionController(signedOutSource);
+    addTearDown(() async {
+      signedOut.dispose();
+      await signedOutSource.dispose();
+    });
+
+    await tester.pumpWidget(
+      ForgeApp(
+        key: const ValueKey('signed-out-habits'),
+        sessionController: signedOut,
+        initialLocation: '/habits',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Return to the\nwork that matters.'), findsOneWidget);
+  });
+
+  testWidgets('habit manager opens for completed users', (tester) async {
+    final signedInSource = _FakeSessionSource(signedIn: true);
+    final signedIn = SessionController(signedInSource);
+    addTearDown(() async {
+      signedIn.dispose();
+      await signedInSource.dispose();
+    });
+    await tester.pumpWidget(
+      ForgeApp(
+        key: const ValueKey('signed-in-habits'),
+        sessionController: signedIn,
+        initialLocation: '/habits',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Shape your habits.'), findsOneWidget);
+    expect(find.text('Your plan is ready for a first move.'), findsOneWidget);
+  });
+
   testWidgets('sign out returns the user to authentication', (tester) async {
     final source = _FakeSessionSource(signedIn: true);
     final controller = SessionController(source);

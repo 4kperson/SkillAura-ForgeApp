@@ -184,6 +184,60 @@ void main() {
     expect(find.text('Your plan is catching up.'), findsOneWidget);
     expect(find.text('Every promise kept.'), findsNothing);
   });
+
+  testWidgets('successful completion offers a server-backed undo', (
+    tester,
+  ) async {
+    final repository = _InteractiveMorningRepository(_snapshot());
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: HomeScreen(repository: repository, onSignOut: () async {}),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Deep work'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('Deep work completed. +40 XP'), findsOneWidget);
+    expect(find.text('Undo'), findsOneWidget);
+
+    await tester.tap(find.byType(SnackBarAction));
+    await tester.pumpAndSettle();
+
+    expect(repository.value.totalXp, 200);
+    expect(repository.value.habits.single.isComplete, isFalse);
+    expect(find.text('Deep work'), findsOneWidget);
+  });
+
+  testWidgets('returning from habit management refreshes Home immediately', (
+    tester,
+  ) async {
+    final repository = _InteractiveMorningRepository(_snapshot());
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: HomeScreen(
+          repository: repository,
+          onSignOut: () async {},
+          onManageHabits: () async {
+            final changed = repository.value.habits.single.copyWith(
+              title: 'Updated focus block',
+            );
+            repository.value = repository.value.copyWith(habits: [changed]);
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Manage'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Updated focus block'), findsOneWidget);
+    expect(find.text('Deep work'), findsNothing);
+  });
 }
 
 MorningSnapshot _snapshot() => MorningSnapshot(

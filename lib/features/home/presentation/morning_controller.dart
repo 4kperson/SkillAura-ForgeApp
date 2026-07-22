@@ -47,14 +47,14 @@ class MorningController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> toggleHabit(String habitId) async {
+  Future<bool> toggleHabit(String habitId) async {
     final current = _snapshot;
-    if (current == null || _updatingHabitIds.contains(habitId)) return;
+    if (current == null || _updatingHabitIds.contains(habitId)) return false;
     final index = current.habits.indexWhere((habit) => habit.id == habitId);
-    if (index < 0) return;
+    if (index < 0) return false;
 
     final habit = current.habits[index];
-    if (habit.isComplete) return;
+    if (habit.isComplete) return false;
 
     _updatingHabitIds.add(habitId);
     _errorMessage = null;
@@ -70,7 +70,7 @@ class MorningController extends ChangeNotifier {
       _errorMessage = 'That promise was not saved. Tap again to retry.';
       _updatingHabitIds.remove(habitId);
       notifyListeners();
-      return;
+      return false;
     }
 
     final confirmedHabits = [...current.habits]
@@ -91,6 +91,52 @@ class MorningController extends ChangeNotifier {
           'Your promise is saved. Live streak details will refresh shortly.';
     }
     notifyListeners();
+    return true;
+  }
+
+  Future<bool> undoHabit(String habitId) async {
+    final current = _snapshot;
+    if (current == null || _updatingHabitIds.contains(habitId)) return false;
+    final index = current.habits.indexWhere((habit) => habit.id == habitId);
+    if (index < 0 || !current.habits[index].isComplete) return false;
+    final habit = current.habits[index];
+
+    _updatingHabitIds.add(habitId);
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      await _repository.setHabitCompletion(
+        habitId: habitId,
+        date: current.forDate,
+        isComplete: false,
+      );
+    } catch (_) {
+      _errorMessage =
+          'That completion could not be undone. Your saved progress is unchanged.';
+      _updatingHabitIds.remove(habitId);
+      notifyListeners();
+      return false;
+    }
+
+    _confirmedStateTimers.remove(habitId)?.cancel();
+    _recentlyCompletedHabitIds.remove(habitId);
+    final restored = [...current.habits]
+      ..[index] = habit.copyWith(isComplete: false);
+    _snapshot = current.copyWith(
+      habits: restored,
+      totalXp: (current.totalXp - habit.xp).clamp(0, 1 << 31),
+    );
+    _updatingHabitIds.remove(habitId);
+    notifyListeners();
+
+    try {
+      _snapshot = await _repository.load(current.forDate);
+    } catch (_) {
+      _errorMessage =
+          'The completion was undone. Live streak details will refresh shortly.';
+    }
+    notifyListeners();
+    return true;
   }
 
   void _scheduleConfirmedStateDismissal(String habitId) {

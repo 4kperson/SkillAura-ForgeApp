@@ -126,6 +126,22 @@ mutations per habit, reloads after every saved change, and rolls back an
 optimistic reorder if persistence fails. Presentation receives calm recovery
 copy rather than database exceptions.
 
+Completed profiles call `ensure_onboarding_habits`, which inserts a missing
+starter promise but uses conflict `do nothing`. Startup therefore repairs old
+accounts without resetting a title, category, reminder, weekday, order, pause,
+or archive choice the user made in the Habit Engine.
+
+`HabitManagementScreen` presents active, paused, and archived libraries over
+the same repository. Its bottom-sheet editor owns unsaved draft state, so a
+network failure never discards typed input. Home pushes this protected route,
+then reloads its server snapshot immediately when the route closes.
+
+Habit reminder IDs use a deterministic reserved range and one ID per active
+weekday. The notification service cancels the complete owned range before
+scheduling the confirmed active plan, including after edits and cold starts.
+Each reminder uses the habit's IANA timezone and weekly calendar matching, so
+daylight-saving transitions are handled by the timezone-aware native schedule.
+
 ## Branch policy
 - `main`: production-ready only.
 - `develop`: integration branch.

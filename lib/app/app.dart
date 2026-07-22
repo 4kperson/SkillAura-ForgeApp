@@ -10,6 +10,9 @@ import '../core/theme/app_theme.dart';
 import '../features/auth/presentation/auth_screen.dart';
 import '../features/auth/presentation/session_controller.dart';
 import '../features/auth/data/email_confirmation_link_source.dart';
+import '../features/habits/data/habit_repository.dart';
+import '../features/habits/domain/habit.dart';
+import '../features/habits/presentation/habit_management_screen.dart';
 import '../features/home/presentation/home_screen.dart';
 import '../features/home/data/morning_repository.dart';
 import '../features/onboarding/data/notification_permission_service.dart';
@@ -25,6 +28,7 @@ class ForgeApp extends StatefulWidget {
     this.onboardingRepository,
     this.onboardingGateController,
     this.morningRepository,
+    this.habitRepository,
     this.notificationPermissionService,
     this.initialLocation = '/splash',
   });
@@ -33,6 +37,7 @@ class ForgeApp extends StatefulWidget {
   final OnboardingRepository? onboardingRepository;
   final OnboardingGateController? onboardingGateController;
   final MorningRepository? morningRepository;
+  final HabitRepository? habitRepository;
   final NotificationPermissionService? notificationPermissionService;
   final String initialLocation;
 
@@ -46,11 +51,13 @@ class _ForgeAppState extends State<ForgeApp> {
   late final OnboardingRepository _onboardingRepository;
   late final OnboardingGateController _onboardingGate;
   late final MorningRepository _morningRepository;
+  late final HabitRepository _habitRepository;
   late final NotificationPermissionService _notificationPermissionService;
   late final bool _ownsOnboardingGate;
   late final Listenable _routerRefresh;
   late final GoRouter _router;
   String? _notificationSyncFingerprint;
+  String? _pendingProtectedLocation;
 
   @override
   void initState() {
@@ -80,6 +87,11 @@ class _ForgeAppState extends State<ForgeApp> {
         (AppEnv.hasSupabaseConfig
             ? SupabaseMorningRepository(Supabase.instance.client)
             : const EmptyMorningRepository());
+    _habitRepository =
+        widget.habitRepository ??
+        (AppEnv.hasSupabaseConfig
+            ? SupabaseHabitRepository(Supabase.instance.client)
+            : const EmptyHabitRepository());
     _notificationPermissionService =
         widget.notificationPermissionService ??
         (AppEnv.hasSupabaseConfig
@@ -91,24 +103,36 @@ class _ForgeAppState extends State<ForgeApp> {
     _synchronizeOnboardingGate();
     _router = GoRouter(
       initialLocation: widget.initialLocation,
+      overridePlatformDefaultLocation: widget.initialLocation != '/splash',
       refreshListenable: _routerRefresh,
       redirect: (context, state) {
         final location = state.matchedLocation;
-        if (!_session.isReady) return location == '/splash' ? null : '/splash';
+        if (!_session.isReady) {
+          _rememberProtectedLocation(location);
+          return location == '/splash' ? null : '/splash';
+        }
         if (!_session.isAuthenticated) {
+          _pendingProtectedLocation = null;
           return location == '/auth' ? null : '/auth';
         }
         if (_onboardingGate.isLoading) {
+          _rememberProtectedLocation(location);
           return location == '/splash' ? null : '/splash';
         }
         if (_onboardingGate.hasFailed) {
           return location == '/splash' ? null : '/splash';
         }
         if (!_onboardingGate.isCompleted) {
+          _pendingProtectedLocation = null;
           return location == '/onboarding' ? null : '/onboarding';
         }
+        if (location == '/splash') {
+          final destination = _pendingProtectedLocation;
+          _pendingProtectedLocation = null;
+          return destination ?? '/home';
+        }
         return switch (location) {
-          '/auth' || '/splash' || '/onboarding' => '/home',
+          '/auth' || '/onboarding' => '/home',
           _ => null,
         };
       },
@@ -147,12 +171,28 @@ class _ForgeAppState extends State<ForgeApp> {
           builder: (_, _) => HomeScreen(
             repository: _morningRepository,
             onSignOut: _session.signOut,
+            onManageHabits: () async {
+              await _router.push<void>('/habits');
+              final profile = _onboardingGate.profile;
+              if (profile != null) await _synchronizeHabitReminders(profile);
+            },
             onEnableReminders: _enableHomeReminders,
             onRefreshReminderPermission: _refreshHomeReminderPermission,
           ),
         ),
+        GoRoute(
+          path: '/habits',
+          builder: (_, _) =>
+              HabitManagementScreen(repository: _habitRepository),
+        ),
       ],
     );
+  }
+
+  void _rememberProtectedLocation(String location) {
+    if (location == '/home' || location == '/habits') {
+      _pendingProtectedLocation = location;
+    }
   }
 
   void _synchronizeOnboardingGate() {
@@ -222,10 +262,13 @@ class _ForgeAppState extends State<ForgeApp> {
       notificationPreference: NotificationPreference.granted,
     );
     try {
-      final synchronized = await _notificationPermissionService.synchronize(
-        updated,
-      );
-      if (!synchronized.remindersReady) {
+      final remindersReady =
+          _notificationPermissionService is DeviceNotificationPermissionService
+          ? await _synchronizeHabitReminders(updated)
+          : (await _notificationPermissionService.synchronize(
+              updated,
+            )).remindersReady;
+      if (!remindersReady) {
         return NotificationRecoveryResult(
           state: NotificationRecoveryState.failed,
           preference: profile.notificationPreference,
@@ -278,10 +321,21 @@ class _ForgeAppState extends State<ForgeApp> {
     String fingerprint,
   ) async {
     try {
-      final result = await _notificationPermissionService.synchronize(profile);
+      final bool remindersReady;
+      if (_notificationPermissionService
+          is DeviceNotificationPermissionService) {
+        remindersReady = await _synchronizeHabitReminders(profile);
+      } else {
+        final result = await _notificationPermissionService.synchronize(
+          profile,
+        );
+        remindersReady =
+            profile.notificationPreference != NotificationPreference.granted ||
+            result.remindersReady;
+      }
       final grantedButUnavailable =
           profile.notificationPreference == NotificationPreference.granted &&
-          !result.remindersReady;
+          !remindersReady;
       if (grantedButUnavailable &&
           _notificationSyncFingerprint == fingerprint) {
         _notificationSyncFingerprint = null;
@@ -298,6 +352,73 @@ class _ForgeAppState extends State<ForgeApp> {
         );
       }
     }
+  }
+
+  Future<bool> _synchronizeHabitReminders(OnboardingProfile profile) async {
+    final service = _notificationPermissionService;
+    if (service is! DeviceNotificationPermissionService) return true;
+    try {
+      final library = await _habitRepository.load();
+      return service.synchronizeHabitPlan(
+        timeZone: library.timeZone,
+        permissionState: profile.notificationPreference,
+        reminders: _buildHabitReminders(library.active),
+      );
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('[notifications] habit plan synchronization failed: $error');
+        debugPrintStack(
+          label: '[notifications] habit plan synchronization stack trace',
+          stackTrace: stackTrace,
+        );
+      }
+      return false;
+    }
+  }
+
+  List<HabitReminder> _buildHabitReminders(List<Habit> habits) {
+    final sorted = [...habits]..sort((a, b) => a.id.compareTo(b.id));
+    final reminders = <HabitReminder>[];
+    final usedIds = <int>{};
+    for (final habit in sorted) {
+      final minutes = habit.reminderMinutes;
+      if (minutes == null) continue;
+      final days = habit.activeWeekdays.toList()..sort();
+      for (final weekday in days) {
+        var id = _habitReminderId('${habit.id}:$weekday');
+        while (!usedIds.add(id)) {
+          id++;
+          if (id > DeviceNotificationPermissionService.habitReminderIdEnd) {
+            id = DeviceNotificationPermissionService.habitReminderIdStart;
+          }
+        }
+        reminders.add(
+          HabitReminder(
+            id: id,
+            title: habit.title,
+            hour: minutes ~/ 60,
+            minute: minutes % 60,
+            weekday: weekday,
+            timeZone: habit.timeZone,
+          ),
+        );
+      }
+    }
+    return reminders;
+  }
+
+  int _habitReminderId(String value) {
+    var hash = 2166136261;
+    for (final codeUnit in value.codeUnits) {
+      hash ^= codeUnit;
+      hash = (hash * 16777619) & 0x7fffffff;
+    }
+    final width =
+        DeviceNotificationPermissionService.habitReminderIdEnd -
+        DeviceNotificationPermissionService.habitReminderIdStart +
+        1;
+    return DeviceNotificationPermissionService.habitReminderIdStart +
+        (hash % width);
   }
 
   @override

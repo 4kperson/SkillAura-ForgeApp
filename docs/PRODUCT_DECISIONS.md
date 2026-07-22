@@ -53,12 +53,23 @@ and continues without guilt or repeated pressure.
   access use the respectful denial path.
 - Reminder scheduling follows persisted consent, rather than merely visiting
   the notification screen.
-- Forge schedules only the three personalized starter commitments and owns a
-  fixed reminder ID range, so non-granted consent cannot affect other apps.
-- Daily reminders use the device IANA time zone and inexact Android delivery,
-  preserving local wall-clock intent without an exact-alarm permission prompt.
+- Forge schedules the confirmed active habit plan and owns reserved reminder
+  ID ranges, so non-granted consent cannot affect unrelated notifications.
+- Weekly reminders use each habit's IANA timezone and inexact Android delivery,
+  preserving wall-clock intent without an exact-alarm permission prompt.
 - Denied and skipped choices intentionally converge on one calm explanation.
   Continuing completes onboarding without pressure; enabling uses the native
   prompt or app settings according to the current platform and permission state.
 - Home retains a clearly actionable reminder card while access is disabled, so
   the choice remains reversible without interrupting the Morning Experience.
+
+## Habit ownership and destructive actions
+
+- Onboarding promises become normal habits. The `STARTER` label explains their
+  origin but never limits editing, pausing, reordering, archiving, or deletion.
+- Archive is reversible and preserves history and XP. Permanent deletion is a
+  separate confirmation that explains both history removal and recorded-XP
+  reversal before the server transaction runs.
+- Completion is available from Today's Mission, where intent is clearest. A
+  five-second Undo action reverses the exact server-recorded XP and restores the
+  mission without introducing a second competing completion control.

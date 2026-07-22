@@ -45,6 +45,24 @@ class StarterHabit {
     'xp_reward': xp,
     'effort_minutes': effortMinutes,
     'scheduled_time': _cueTime,
+    'reminder_time': _cueTime,
+    'category': switch (kind) {
+      StarterHabitKind.discipline => 'discipline',
+      StarterHabitKind.health => 'health',
+      StarterHabitKind.focus => 'focus',
+      StarterHabitKind.study => 'learning',
+      StarterHabitKind.sleep => 'sleep',
+      StarterHabitKind.screenTime => 'digital',
+    },
+    'symbol': switch (kind) {
+      StarterHabitKind.discipline => 'shield',
+      StarterHabitKind.health => 'heart',
+      StarterHabitKind.focus => 'target',
+      StarterHabitKind.study => 'book',
+      StarterHabitKind.sleep => 'moon',
+      StarterHabitKind.screenTime => 'phone',
+    },
+    'active_weekdays': const [1, 2, 3, 4, 5, 6, 7],
   };
 
   String get _cueTime =>

@@ -30,7 +30,6 @@ class SupabaseMorningRepository implements MorningRepository {
   Future<MorningSnapshot> load(DateTime date) async {
     final userId = _userId;
     await _client.rpc('ensure_user_profile');
-    final dateKey = _dateKey(date);
     final results = await Future.wait<dynamic>([
       _client
           .from('profiles')
@@ -40,30 +39,16 @@ class SupabaseMorningRepository implements MorningRepository {
           )
           .eq('id', userId)
           .single(),
-      _client
-          .from('habits')
-          .select(
-            'id, title, xp_reward, source_key, scheduled_time, '
-            'effort_minutes, created_at',
-          )
-          .eq('user_id', userId)
-          .eq('is_active', true)
-          .order('created_at'),
-      _client
-          .from('habit_completions')
-          .select('habit_id')
-          .eq('user_id', userId)
-          .eq('completed_on', dateKey),
+      _client.rpc('get_today_habits'),
     ]);
 
     final profile = results[0] as Map<String, dynamic>;
     final habitRows = (results[1] as List).cast<Map<String, dynamic>>();
-    final completedIds = (results[2] as List)
-        .cast<Map<String, dynamic>>()
-        .map((row) => row['habit_id'] as String)
-        .toSet();
     final createdAt = DateTime.parse(profile['created_at'] as String).toLocal();
-    final today = DateTime(date.year, date.month, date.day);
+    final effective = habitRows.isEmpty
+        ? date
+        : DateTime.parse(habitRows.first['local_date'] as String);
+    final today = DateTime(effective.year, effective.month, effective.day);
     final started = DateTime(createdAt.year, createdAt.month, createdAt.day);
 
     return MorningSnapshot(
@@ -73,10 +58,7 @@ class SupabaseMorningRepository implements MorningRepository {
       totalXp: (profile['total_xp'] as num).toInt(),
       currentStreak: (profile['current_streak'] as num).toInt(),
       longestStreak: (profile['longest_streak'] as num).toInt(),
-      habits: [
-        for (final row in habitRows)
-          Habit.fromJson(row, isComplete: completedIds.contains(row['id'])),
-      ],
+      habits: [for (final row in habitRows) Habit.fromJson(row)],
       forDate: today,
       notificationsEnabled: profile['notifications_enabled'] == true,
     );
@@ -89,19 +71,14 @@ class SupabaseMorningRepository implements MorningRepository {
     required bool isComplete,
   }) async {
     await _client.rpc(
-      'set_habit_completion',
+      'set_habit_completion_v2',
       params: {
         'p_habit_id': habitId,
-        'p_completed_on': _dateKey(date),
         'p_is_complete': isComplete,
+        'p_source': 'home',
       },
     );
   }
-
-  static String _dateKey(DateTime date) =>
-      '${date.year.toString().padLeft(4, '0')}-'
-      '${date.month.toString().padLeft(2, '0')}-'
-      '${date.day.toString().padLeft(2, '0')}';
 
   static String _firstName(String? displayName) {
     final trimmed = displayName?.trim() ?? '';

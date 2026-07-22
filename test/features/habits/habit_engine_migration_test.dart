@@ -4,10 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   late String migration;
+  late String compatibilityMigration;
 
   setUpAll(() {
     migration = File(
       'supabase/migrations/202607220001_habit_engine.sql',
+    ).readAsStringSync().toLowerCase();
+    compatibilityMigration = File(
+      'supabase/migrations/202607220002_habit_engine_compatibility.sql',
     ).readAsStringSync().toLowerCase();
   });
 
@@ -60,5 +64,20 @@ void main() {
     expect(migration, contains('extract(isodow'));
     expect(migration, contains('any(h.active_weekdays)'));
     expect(migration, contains('habit is not active today'));
+  });
+
+  test('compatibility repair never overwrites an edited starter habit', () {
+    expect(compatibilityMigration, isNot(contains('drop table')));
+    expect(compatibilityMigration, isNot(contains('truncate ')));
+    expect(compatibilityMigration, contains('ensure_onboarding_habits'));
+    expect(compatibilityMigration, contains('do nothing;'));
+    expect(
+      compatibilityMigration,
+      contains('delete from public.habit_completions c'),
+    );
+    expect(
+      compatibilityMigration,
+      contains('c.completion_date = v_completion_date'),
+    );
   });
 }

@@ -166,6 +166,68 @@ void main() {
   });
 
   test(
+    'habit plan schedules distinct weekday reminders after cleanup',
+    () async {
+      final platform = _FakeNotificationPlatform(
+        pendingIds: {
+          4100,
+          DeviceNotificationPermissionService.habitReminderIdStart + 12,
+        },
+      );
+      final service = DeviceNotificationPermissionService(platform: platform);
+
+      final result = await service.synchronizeHabitPlan(
+        timeZone: 'UTC',
+        permissionState: NotificationPreference.granted,
+        reminders: const [
+          HabitReminder(
+            id: 1000000101,
+            title: 'Deep work',
+            hour: 9,
+            minute: 15,
+            weekday: 1,
+            timeZone: 'UTC',
+          ),
+          HabitReminder(
+            id: 1000000103,
+            title: 'Deep work',
+            hour: 9,
+            minute: 15,
+            weekday: 3,
+            timeZone: 'UTC',
+          ),
+        ],
+      );
+
+      expect(result, isTrue);
+      expect(platform.cancelledIds, containsAll([4100, 1000000012]));
+      expect(platform.scheduledIds, containsAll([1000000101, 1000000103]));
+      expect(platform.scheduledReminders[1000000101]?.weekday, 1);
+      expect(platform.scheduledReminders[1000000103]?.weekday, 3);
+    },
+  );
+
+  test(
+    'disabled permission clears habit reminders without rescheduling',
+    () async {
+      final platform = _FakeNotificationPlatform(
+        pendingIds: {1000000101, 1000000103},
+      );
+      final service = DeviceNotificationPermissionService(platform: platform);
+
+      final result = await service.synchronizeHabitPlan(
+        timeZone: 'UTC',
+        permissionState: NotificationPreference.denied,
+        reminders: const [],
+      );
+
+      expect(result, isTrue);
+      expect(platform.cancelledIds, containsAll([1000000101, 1000000103]));
+      expect(platform.scheduledIds, isEmpty);
+    },
+  );
+
+  test(
     'granted permission reports scheduling failure and rolls back',
     () async {
       final platform = _FakeNotificationPlatform(failingScheduleId: 4101);
@@ -308,6 +370,7 @@ class _FakeNotificationPlatform implements LocalNotificationPlatform {
   final Set<int> failingCancellationIds;
   final List<String> operations = [];
   final List<int> scheduledIds = [];
+  final Map<int, DailyReminder> scheduledReminders = {};
   final List<int> cancelledIds = [];
   final List<int> cancellationAttempts = [];
   int initializePluginCalls = 0;
@@ -352,6 +415,7 @@ class _FakeNotificationPlatform implements LocalNotificationPlatform {
     operations.add('schedule:$id');
     if (id == failingScheduleId) throw StateError('schedule failed');
     scheduledIds.add(id);
+    scheduledReminders[id] = reminder;
     pendingIds.add(id);
   }
 }

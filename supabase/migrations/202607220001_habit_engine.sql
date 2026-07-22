@@ -461,11 +461,11 @@ begin
       where id = v_user_id;
     end if;
   else
-    delete from public.habit_completions
-    where habit_id = p_habit_id
-      and user_id = v_user_id
-      and completion_date = v_completion_date
-    returning xp_awarded into v_awarded;
+    delete from public.habit_completions c
+    where c.habit_id = p_habit_id
+      and c.user_id = v_user_id
+      and c.completion_date = v_completion_date
+    returning c.xp_awarded into v_awarded;
 
     v_changed := found;
     if v_changed then

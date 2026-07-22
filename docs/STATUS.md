@@ -205,3 +205,21 @@ Status: complete locally on 2026-07-22.
   confirmed Supabase state after saves, and rolls back failed reorders.
 - Added validation and calm offline/save/load recovery messages that preserve
   unsaved form input and confirmed server data.
+
+## Milestone: premium Habit Management and Home integration
+
+Status: complete locally on 2026-07-22.
+
+- Added a protected, premium Habit Management screen with active, paused, and
+  archived sections, drag ordering, intentional empty/loading/error states, and
+  compact-device support.
+- Added keyboard-safe create/edit sheets with category, symbol, active weekday,
+  native reminder-time, validation, retry, and explicit saved feedback.
+- Added pause/resume, archive/restore, history, and a permanent-delete warning
+  that explains completion-history and XP consequences.
+- Made Home refresh immediately after management, filter today's server-active
+  plan, and offer server-backed completion Undo.
+- Added weekly timezone-aware native reminders regenerated from the confirmed
+  active plan after edits and on cold start.
+- Prevented startup repair from overwriting onboarding promises that users have
+  customized in the Habit Engine.

@@ -15,12 +15,14 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.onSignOut,
+    this.onManageHabits = _unavailableHabitManager,
     this.onEnableReminders = _unavailableReminderRecovery,
     this.onRefreshReminderPermission = _unavailablePermissionRefresh,
   });
 
   final MorningRepository repository;
   final Future<void> Function() onSignOut;
+  final Future<void> Function() onManageHabits;
   final Future<NotificationRecoveryResult> Function() onEnableReminders;
   final Future<bool> Function() onRefreshReminderPermission;
 
@@ -35,6 +37,8 @@ Future<NotificationRecoveryResult> _unavailableReminderRecovery() async =>
     );
 
 Future<bool> _unavailablePermissionRefresh() async => false;
+
+Future<void> _unavailableHabitManager() async {}
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   late final MorningController _controller;
@@ -120,6 +124,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _openHabitManager() async {
+    await widget.onManageHabits();
+    if (mounted) await _controller.initialize();
+  }
+
+  Future<void> _completeHabit(Habit habit) async {
+    final saved = await _controller.toggleHabit(habit.id);
+    if (!saved || !mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('${habit.title} completed. +${habit.xp} XP'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+          backgroundColor: AppColors.surfaceElevated,
+          action: SnackBarAction(
+            label: 'Undo',
+            textColor: AppColors.primaryBright,
+            onPressed: () => unawaited(_controller.undoHabit(habit.id)),
+          ),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -173,6 +202,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       controller: _controller,
       onSignOut: widget.onSignOut,
       onRefresh: _controller.initialize,
+      onManageHabits: _openHabitManager,
+      onCompleteHabit: _completeHabit,
       onEnableReminders: _enableReminders,
       reminderActionInProgress: _reminderActionInProgress,
       reminderActionError: _reminderActionError,
@@ -186,6 +217,8 @@ class _MorningExperience extends StatelessWidget {
     required this.controller,
     required this.onSignOut,
     required this.onRefresh,
+    required this.onManageHabits,
+    required this.onCompleteHabit,
     required this.onEnableReminders,
     required this.reminderActionInProgress,
     required this.reminderActionError,
@@ -195,6 +228,8 @@ class _MorningExperience extends StatelessWidget {
   final MorningController controller;
   final Future<void> Function() onSignOut;
   final Future<void> Function() onRefresh;
+  final VoidCallback onManageHabits;
+  final ValueChanged<Habit> onCompleteHabit;
   final VoidCallback onEnableReminders;
   final bool reminderActionInProgress;
   final String? reminderActionError;
@@ -229,7 +264,7 @@ class _MorningExperience extends StatelessWidget {
           const SizedBox(height: 14),
           _ProgressHero(snapshot: snapshot),
           const SizedBox(height: 30),
-          _MissionHeader(snapshot: snapshot),
+          _MissionHeader(snapshot: snapshot, onManageHabits: onManageHabits),
           const SizedBox(height: 13),
           AnimatedSize(
             duration: const Duration(milliseconds: 280),
@@ -258,7 +293,7 @@ class _MorningExperience extends StatelessWidget {
                               missionHabits[index].id,
                             ),
                             onComplete: () =>
-                                controller.toggleHabit(missionHabits[index].id),
+                                onCompleteHabit(missionHabits[index]),
                           ),
                           if (index < missionHabits.length - 1)
                             const SizedBox(height: 11),
@@ -613,9 +648,10 @@ class _ProgressHero extends StatelessWidget {
 }
 
 class _MissionHeader extends StatelessWidget {
-  const _MissionHeader({required this.snapshot});
+  const _MissionHeader({required this.snapshot, required this.onManageHabits});
 
   final MorningSnapshot snapshot;
+  final VoidCallback onManageHabits;
 
   @override
   Widget build(BuildContext context) {
@@ -648,13 +684,49 @@ class _MissionHeader extends StatelessWidget {
             ],
           ),
         ),
-        Text(
-          '${snapshot.completedCount}/${snapshot.totalCount} kept',
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '${snapshot.completedCount}/${snapshot.totalCount} kept',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Semantics(
+              button: true,
+              label: 'Manage habits',
+              child: InkWell(
+                onTap: onManageHabits,
+                borderRadius: BorderRadius.circular(12),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.tune_rounded,
+                        size: 15,
+                        color: AppColors.primaryBright,
+                      ),
+                      SizedBox(width: 5),
+                      Text(
+                        'Manage',
+                        style: TextStyle(
+                          color: AppColors.primaryBright,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -714,7 +786,7 @@ class _MissionCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
-                    _habitIcon(habit.kind),
+                    _habitIcon(habit),
                     color: AppColors.primaryBright,
                     size: 22,
                   ),
@@ -1273,19 +1345,28 @@ class _HomeGlow extends StatelessWidget {
   );
 }
 
-IconData _habitIcon(String? kind) => switch (kind) {
-  'discipline' => Icons.bolt_rounded,
-  'health' => Icons.favorite_rounded,
-  'focus' => Icons.center_focus_strong_rounded,
-  'study' => Icons.school_rounded,
-  'sleep' => Icons.bedtime_rounded,
-  'screenTime' => Icons.phone_android_rounded,
-  _ => Icons.task_alt_rounded,
+IconData _habitIcon(Habit habit) => switch (habit.symbol) {
+  HabitSymbol.shield => Icons.shield_rounded,
+  HabitSymbol.heart => Icons.favorite_rounded,
+  HabitSymbol.target => Icons.center_focus_strong_rounded,
+  HabitSymbol.book => Icons.menu_book_rounded,
+  HabitSymbol.moon => Icons.bedtime_rounded,
+  HabitSymbol.phone => Icons.phone_android_rounded,
+  HabitSymbol.spark => Icons.auto_awesome_rounded,
+  HabitSymbol.bolt => Icons.bolt_rounded,
+  HabitSymbol.leaf => Icons.eco_rounded,
 };
 
 String _habitDetails(Habit habit) {
   final details = <String>[];
-  if (habit.scheduledTime case final time?) {
+  if (habit.reminderMinutes case final minutes?) {
+    var hour = minutes ~/ 60;
+    final minute = (minutes % 60).toString().padLeft(2, '0');
+    final period = hour < 12 ? 'AM' : 'PM';
+    if (hour == 0) hour = 12;
+    if (hour > 12) hour -= 12;
+    details.add('$hour:$minute $period');
+  } else if (habit.scheduledTime case final time?) {
     final parts = time.split(':');
     if (parts.length >= 2) {
       var hour = int.tryParse(parts[0]) ?? 0;

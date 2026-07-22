@@ -58,7 +58,7 @@ void main() {
     final controller = HabitEngineController(repository);
     await controller.initialize();
 
-    final result = await controller.reorderActive(0, 3);
+    final result = await controller.reorderActive(0, 2);
 
     expect(result, isTrue);
     expect(repository.lastOrder, ['two', 'three', 'one']);
@@ -94,7 +94,7 @@ void main() {
     await controller.initialize();
     repository.failMutations = true;
 
-    final saved = await controller.reorderActive(0, 2);
+    final saved = await controller.reorderActive(0, 1);
 
     expect(saved, isFalse);
     expect(controller.library!.active.map((habit) => habit.id), ['one', 'two']);
