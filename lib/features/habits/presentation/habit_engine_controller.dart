@@ -119,7 +119,7 @@ class HabitEngineController extends ChangeNotifier {
     final optimistic = [
       for (final habit in current.habits)
         positions.containsKey(habit.id)
-            ? habit.copyWith(position: positions[habit.id])
+            ? habit.copyWith(sortPosition: positions[habit.id])
             : habit,
     ]..sort(_compareHabits);
     _library = HabitLibrary(habits: optimistic, timeZone: current.timeZone);
@@ -180,8 +180,8 @@ class HabitEngineController extends ChangeNotifier {
   }
 
   static int _compareHabits(Habit a, Habit b) {
-    final position = a.position.compareTo(b.position);
-    if (position != 0) return position;
+    final order = a.sortPosition.compareTo(b.sortPosition);
+    if (order != 0) return order;
     return a.title.compareTo(b.title);
   }
 }

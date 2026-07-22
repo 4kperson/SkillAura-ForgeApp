@@ -246,7 +246,7 @@ class _ScreenHabitRepository implements HabitRepository {
       reminderMinutes: draft.reminderMinutes,
       activeWeekdays: draft.activeWeekdays,
       timeZone: draft.timeZone,
-      position: habits.length,
+      sortPosition: habits.length,
       xp: 10,
     );
     habits.add(habit);
@@ -290,11 +290,11 @@ class _ScreenHabitRepository implements HabitRepository {
 
   @override
   Future<void> reorder(List<String> habitIds) async {
-    for (var position = 0; position < habitIds.length; position++) {
-      final index = _index(habitIds[position]);
-      habits[index] = habits[index].copyWith(position: position);
+    for (var sortPosition = 0; sortPosition < habitIds.length; sortPosition++) {
+      final index = _index(habitIds[sortPosition]);
+      habits[index] = habits[index].copyWith(sortPosition: sortPosition);
     }
-    habits.sort((a, b) => a.position.compareTo(b.position));
+    habits.sort((a, b) => a.sortPosition.compareTo(b.sortPosition));
   }
 
   @override

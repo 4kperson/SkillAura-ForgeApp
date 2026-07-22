@@ -57,7 +57,7 @@ class Habit {
     this.reminderMinutes,
     this.activeWeekdays = const {1, 2, 3, 4, 5, 6, 7},
     this.timeZone = 'America/New_York',
-    this.position = 0,
+    this.sortPosition = 0,
     this.isPaused = false,
     this.isArchived = false,
     this.isComplete = false,
@@ -78,7 +78,7 @@ class Habit {
   final int? reminderMinutes;
   final Set<int> activeWeekdays;
   final String timeZone;
-  final int position;
+  final int sortPosition;
   final bool isPaused;
   final bool isArchived;
   final int xp;
@@ -123,7 +123,7 @@ class Habit {
               .toSet() ??
           const {1, 2, 3, 4, 5, 6, 7},
       timeZone: json['timezone'] as String? ?? 'America/New_York',
-      position: (json['position'] as num?)?.toInt() ?? 0,
+      sortPosition: (json['sort_position'] as num?)?.toInt() ?? 0,
       isPaused: json['paused'] as bool? ?? false,
       isArchived: json['archived'] as bool? ?? false,
       xp: (json['xp_reward'] as num?)?.toInt() ?? 10,
@@ -146,7 +146,7 @@ class Habit {
     bool clearReminder = false,
     Set<int>? activeWeekdays,
     String? timeZone,
-    int? position,
+    int? sortPosition,
     bool? isPaused,
     bool? isArchived,
     int? xp,
@@ -168,7 +168,7 @@ class Habit {
         : reminderMinutes ?? this.reminderMinutes,
     activeWeekdays: activeWeekdays ?? this.activeWeekdays,
     timeZone: timeZone ?? this.timeZone,
-    position: position ?? this.position,
+    sortPosition: sortPosition ?? this.sortPosition,
     isPaused: isPaused ?? this.isPaused,
     isArchived: isArchived ?? this.isArchived,
     xp: xp ?? this.xp,

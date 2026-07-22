@@ -8,7 +8,7 @@ alter table public.habits
   add column if not exists symbol text,
   add column if not exists active_weekdays smallint[],
   add column if not exists timezone text,
-  add column if not exists position integer,
+  add column if not exists sort_position integer,
   add column if not exists paused boolean not null default false,
   add column if not exists archived boolean not null default false,
   add column if not exists updated_at timestamptz;
@@ -26,6 +26,26 @@ begin
   ) then
     alter table public.habits add column reminder_time time;
     update public.habits set reminder_time = scheduled_time;
+  end if;
+end;
+$$;
+
+-- The first published Sprint 4 migration could stop after creating a legacy
+-- `position` column. Copy it once as recovery input, but keep the permanent
+-- schema and RPC contract on the non-keyword `sort_position` name.
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'habits'
+      and column_name = 'position'
+  ) then
+    execute format(
+      'update public.habits set sort_position = coalesce(sort_position, %I) where sort_position is null',
+      'position'
+    );
   end if;
 end;
 $$;
@@ -73,10 +93,10 @@ with ranked as (
     id,
     row_number() over (partition by user_id order by created_at, id) - 1 as new_position
   from public.habits
-  where position is null
+  where sort_position is null
 )
 update public.habits h
-set position = ranked.new_position
+set sort_position = ranked.new_position
 from ranked
 where h.id = ranked.id;
 
@@ -98,8 +118,8 @@ alter table public.habits
   alter column active_weekdays set not null,
   alter column timezone set default 'America/New_York',
   alter column timezone set not null,
-  alter column position set default 0,
-  alter column position set not null,
+  alter column sort_position set default 0,
+  alter column sort_position set not null,
   alter column updated_at set default now(),
   alter column updated_at set not null;
 
@@ -188,11 +208,11 @@ begin
 
   if not exists (
     select 1 from pg_constraint
-    where conname = 'habits_position_check'
+    where conname = 'habits_sort_position_check'
       and conrelid = 'public.habits'::regclass
   ) then
-    alter table public.habits add constraint habits_position_check check (
-      position >= 0
+    alter table public.habits add constraint habits_sort_position_check check (
+      sort_position >= 0
     );
   end if;
 
@@ -223,8 +243,8 @@ $$;
 create unique index if not exists habit_completions_habit_completion_date_unique
   on public.habit_completions (habit_id, completion_date);
 
-create index if not exists habits_user_status_position_idx
-  on public.habits (user_id, archived, paused, position);
+create index if not exists habits_user_status_sort_position_idx
+  on public.habits (user_id, archived, paused, sort_position);
 
 create index if not exists habit_completions_user_date_idx
   on public.habit_completions (user_id, completion_date desc);
@@ -301,7 +321,7 @@ returns table (
   reminder_time time,
   active_weekdays smallint[],
   timezone text,
-  position integer,
+  sort_position integer,
   paused boolean,
   archived boolean,
   created_at timestamptz,
@@ -334,7 +354,7 @@ begin
     h.reminder_time,
     h.active_weekdays,
     h.timezone,
-    h.position,
+    h.sort_position,
     h.paused,
     h.archived,
     h.created_at,
@@ -357,7 +377,7 @@ begin
     and h.paused = false
     and h.archived = false
     and extract(isodow from (now() at time zone h.timezone))::smallint = any(h.active_weekdays)
-  order by h.position, h.created_at, h.id;
+  order by h.sort_position, h.created_at, h.id;
 end;
 $$;
 
@@ -531,7 +551,7 @@ begin
   end if;
 
   update public.habits h
-  set position = requested.ordinality - 1,
+  set sort_position = requested.ordinality - 1,
       updated_at = now()
   from unnest(p_habit_ids) with ordinality as requested(value, ordinality)
   where h.id = requested.value
@@ -593,7 +613,7 @@ where table_schema = 'public'
   and table_name in ('habits', 'habit_completions')
   and column_name in (
     'id', 'user_id', 'title', 'category', 'symbol', 'reminder_time',
-    'active_weekdays', 'timezone', 'position', 'paused', 'archived',
+    'active_weekdays', 'timezone', 'sort_position', 'paused', 'archived',
     'created_at', 'updated_at', 'habit_id', 'completion_date',
     'completed_at', 'xp_awarded', 'source'
   )
@@ -616,7 +636,7 @@ from pg_indexes
 where schemaname = 'public'
   and indexname in (
     'habit_completions_habit_completion_date_unique',
-    'habits_user_status_position_idx',
+    'habits_user_status_sort_position_idx',
     'habit_completions_user_date_idx'
   )
 order by indexname;

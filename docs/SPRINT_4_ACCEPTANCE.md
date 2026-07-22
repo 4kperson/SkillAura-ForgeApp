@@ -2,8 +2,9 @@
 
 ## Preparation
 
-- Apply `202607220001_habit_engine.sql` in the Supabase SQL Editor.
-- Apply `202607220002_habit_engine_compatibility.sql` immediately after it.
+- Rerun `202607220001_habit_engine.sql` in the Supabase SQL Editor.
+- Apply `202607220003_habit_engine_sort_position_repair.sql` next.
+- Apply `202607220002_habit_engine_compatibility.sql` last.
 - Confirm the verification results show RLS enabled and the expected owner-only
   policies and functions.
 - Install a fresh debug build and sign in to an account that completed

@@ -119,6 +119,11 @@ Reordering and permanent deletion also use ownership-checked functions;
 deletion removes that habit's history and reverses its recorded XP atomically.
 Existing owner-only RLS remains enabled for both tables.
 
+Database ordering is stored as `habits.sort_position` and exposed by the same
+name from `get_today_habits`. The old `position` identifier is accepted only as
+one-time recovery input for databases where the first Sprint 4 migration
+partially applied; application queries and RPCs never depend on it.
+
 `HabitRepository` is the only Flutter boundary allowed to mutate a habit. It
 returns typed `Habit`, `HabitDraft`, `HabitCompletion`, and `HabitLibrary`
 models. `HabitEngineController` keeps confirmed server state, locks concurrent

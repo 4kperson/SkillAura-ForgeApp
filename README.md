@@ -62,19 +62,26 @@ The product-stability release requires
 
 Sprint 4 requires `202607220001_habit_engine.sql`. Run it after the product
 stability migration. It preserves the onboarding-generated habits and adds the
-editable category, symbol, reminder, weekday, timezone, order, paused,
-archived, and update fields. It also records completion dates, completion
-timestamps, awarded XP, and source while retaining the legacy compatibility
-columns. Completion, undo, reorder, and permanent deletion use authenticated
-server functions so XP and history remain atomic. The migration is additive,
-idempotent, and contains verification queries for columns, RLS, policies,
-indexes, and functions.
+editable category, symbol, reminder, weekday, timezone, `sort_position`,
+paused, archived, and update fields. It also records completion dates,
+completion timestamps, awarded XP, and source while retaining legacy
+compatibility columns. Completion, undo, reorder, and permanent deletion use
+authenticated server functions so XP and history remain atomic.
 
-Then run `202607220002_habit_engine_compatibility.sql`. It upgrades future
-onboarding plans to the same editable habit contract, preserves starter habits
-the user already customized, and repairs completion undo for projects that
-already applied the first Sprint 4 migration. Both migrations are required,
-additive, idempotent, and contain no table drops or truncation.
+The originally published Sprint 4 migration could stop while declaring the
+`get_today_habits` return table because `position` was parsed as SQL syntax.
+If that failure occurred, the earlier statements may already be committed.
+Recover in the Supabase SQL Editor in this exact order:
+
+1. Rerun the updated `202607220001_habit_engine.sql`.
+2. Run `202607220003_habit_engine_sort_position_repair.sql`.
+3. Run `202607220002_habit_engine_compatibility.sql` last.
+
+The repair copies a partially created legacy `position` value only when the
+new `sort_position` is null. It does not remove the legacy column, overwrite
+user order, mutate completion history, or change XP. All three migrations are
+safe to rerun and their policy, constraint, index, trigger, and function guards
+prevent duplicate objects.
 
 ## Daily reminders
 

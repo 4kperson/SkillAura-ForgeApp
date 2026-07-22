@@ -223,3 +223,16 @@ Status: complete locally on 2026-07-22.
   active plan after edits and on cold start.
 - Prevented startup repair from overwriting onboarding promises that users have
   customized in the Habit Engine.
+
+## Milestone: partial-migration recovery
+
+Status: complete locally on 2026-07-22.
+
+- Replaced the unsafe SQL order identifier with `sort_position` across the
+  database, RPC, Flutter model, repository, onboarding payload, and tests.
+- Made migration 001 recover a legacy partially applied `position` column
+  without dropping it or overwriting an existing `sort_position`.
+- Added an additive repair migration that can be rerun without changing XP,
+  completions, user-edited habits, policies, constraints, indexes, or triggers.
+- Documented the required SQL Editor recovery order before compatibility
+  migration 002 is applied.

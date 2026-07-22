@@ -52,9 +52,9 @@ void main() {
 
   test('reorder is immediate, persists, and reloads server order', () async {
     final repository = _MemoryHabitRepository()
-      ..seed(_habit('one', 'One', position: 0))
-      ..seed(_habit('two', 'Two', position: 1))
-      ..seed(_habit('three', 'Three', position: 2));
+      ..seed(_habit('one', 'One', sortPosition: 0))
+      ..seed(_habit('two', 'Two', sortPosition: 1))
+      ..seed(_habit('three', 'Three', sortPosition: 2));
     final controller = HabitEngineController(repository);
     await controller.initialize();
 
@@ -88,8 +88,8 @@ void main() {
 
   test('failed reorder rolls back the optimistic order', () async {
     final repository = _MemoryHabitRepository()
-      ..seed(_habit('one', 'One', position: 0))
-      ..seed(_habit('two', 'Two', position: 1));
+      ..seed(_habit('one', 'One', sortPosition: 0))
+      ..seed(_habit('two', 'Two', sortPosition: 1));
     final controller = HabitEngineController(repository);
     await controller.initialize();
     repository.failMutations = true;
@@ -121,12 +121,12 @@ HabitDraft _draft(String title) => HabitDraft(
   timeZone: 'UTC',
 );
 
-Habit _habit(String id, String title, {int position = 0}) => Habit(
+Habit _habit(String id, String title, {int sortPosition = 0}) => Habit(
   id: id,
   userId: 'user-1',
   title: title,
   xp: 10,
-  position: position,
+  sortPosition: sortPosition,
   timeZone: 'UTC',
 );
 
@@ -143,7 +143,7 @@ class _MemoryHabitRepository implements HabitRepository {
   Future<HabitLibrary> load() async {
     if (failLoads) throw StateError('offline');
     final sorted = [..._habits]
-      ..sort((a, b) => a.position.compareTo(b.position));
+      ..sort((a, b) => a.sortPosition.compareTo(b.sortPosition));
     return HabitLibrary(habits: sorted, timeZone: 'UTC');
   }
 
@@ -159,7 +159,7 @@ class _MemoryHabitRepository implements HabitRepository {
       reminderMinutes: draft.reminderMinutes,
       activeWeekdays: draft.activeWeekdays,
       timeZone: draft.timeZone,
-      position: _habits.length,
+      sortPosition: _habits.length,
       xp: 10,
     );
     _habits.add(habit);
@@ -212,7 +212,7 @@ class _MemoryHabitRepository implements HabitRepository {
     lastOrder = [...habitIds];
     for (var index = 0; index < habitIds.length; index++) {
       final habitIndex = _index(habitIds[index]);
-      _habits[habitIndex] = _habits[habitIndex].copyWith(position: index);
+      _habits[habitIndex] = _habits[habitIndex].copyWith(sortPosition: index);
     }
   }
 

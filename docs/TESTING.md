@@ -68,3 +68,9 @@ starter-promise editing, loading, failure/retry, empty state, and compact-phone
 layout. Home coverage verifies an immediate refresh after management and the
 server-backed Undo path. Notification coverage verifies distinct weekly IDs,
 owned-reminder cleanup, granted scheduling, and disabled-state cancellation.
+
+The migration recovery tests enforce the permanent `sort_position` contract,
+reject the unsafe return-table identifier, and verify that the repair contains
+no table drops, truncation, completion deletion, profile XP update, or other XP
+mutation. Before release, migrations 001, repair 003, and compatibility 002 are
+executed twice against PostgreSQL to verify syntax and rerun safety.

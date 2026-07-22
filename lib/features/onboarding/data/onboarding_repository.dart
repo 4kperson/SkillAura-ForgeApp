@@ -77,7 +77,7 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
             {
               ...profile.recommendedHabits[index].toJson(),
               'timezone': profile.timeZone,
-              'position': index,
+              'sort_position': index,
             },
         ],
       },
@@ -92,7 +92,7 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
           {
             ...profile.recommendedHabits[index].toJson(),
             'timezone': profile.timeZone,
-            'position': index,
+            'sort_position': index,
           },
       ],
     },

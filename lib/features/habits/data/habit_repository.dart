@@ -41,7 +41,7 @@ class SupabaseHabitRepository implements HabitRepository {
 
   static const _habitColumns =
       'id, user_id, title, category, symbol, reminder_time, scheduled_time, '
-      'active_weekdays, timezone, position, paused, archived, xp_reward, '
+      'active_weekdays, timezone, sort_position, paused, archived, xp_reward, '
       'is_active, source, source_key, effort_minutes, created_at, updated_at';
 
   String get _userId {
@@ -60,7 +60,7 @@ class SupabaseHabitRepository implements HabitRepository {
           .from('habits')
           .select(_habitColumns)
           .eq('user_id', userId)
-          .order('position')
+          .order('sort_position')
           .order('created_at'),
       _client.from('profiles').select('timezone').eq('id', userId).single(),
     ]);
@@ -76,22 +76,22 @@ class SupabaseHabitRepository implements HabitRepository {
   Future<Habit> create(HabitDraft draft) async {
     _validate(draft);
     final userId = _userId;
-    final positionRows = await _client
+    final orderRows = await _client
         .from('habits')
-        .select('position')
+        .select('sort_position')
         .eq('user_id', userId)
         .eq('archived', false)
-        .order('position', ascending: false)
+        .order('sort_position', ascending: false)
         .limit(1);
-    final nextPosition = positionRows.isEmpty
+    final nextPosition = orderRows.isEmpty
         ? 0
-        : ((positionRows.first['position'] as num?)?.toInt() ?? 0) + 1;
+        : ((orderRows.first['sort_position'] as num?)?.toInt() ?? 0) + 1;
     final row = await _client
         .from('habits')
         .insert({
           ...draft.toJson(),
           'user_id': userId,
-          'position': nextPosition,
+          'sort_position': nextPosition,
           'paused': false,
           'archived': false,
           'is_active': true,

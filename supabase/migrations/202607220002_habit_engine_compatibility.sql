@@ -1,6 +1,8 @@
 -- Keep future onboarding-generated promises on the Sprint 4 habit contract and
 -- repair an ambiguous completion-column reference for already-migrated projects.
 -- This migration replaces functions only; it does not remove or rewrite data.
+-- `position` is accepted only as legacy JSON input; persisted order uses the
+-- permanent `sort_position` schema contract.
 
 create or replace function public.complete_onboarding(
   p_goals text[],
@@ -131,7 +133,7 @@ begin
       effort_minutes,
       active_weekdays,
       timezone,
-      position,
+      sort_position,
       paused,
       archived
     ) values (
@@ -151,7 +153,16 @@ begin
       (v_habit ->> 'effort_minutes')::integer,
       array[1, 2, 3, 4, 5, 6, 7]::smallint[],
       coalesce(nullif(v_habit ->> 'timezone', ''), 'America/New_York'),
-      greatest(0, coalesce((v_habit ->> 'position')::integer, 0)),
+      greatest(
+        0,
+        coalesce(
+          coalesce(
+            v_habit ->> 'sort_position',
+            v_habit ->> 'position'
+          )::integer,
+          0
+        )
+      ),
       false,
       false
     )
@@ -168,7 +179,7 @@ begin
       effort_minutes = excluded.effort_minutes,
       active_weekdays = excluded.active_weekdays,
       timezone = excluded.timezone,
-      position = excluded.position,
+      sort_position = excluded.sort_position,
       paused = false,
       archived = false,
       updated_at = now();
@@ -247,7 +258,7 @@ begin
       effort_minutes,
       active_weekdays,
       timezone,
-      position,
+      sort_position,
       paused,
       archived
     ) values (
@@ -267,7 +278,16 @@ begin
       (v_habit ->> 'effort_minutes')::integer,
       array[1, 2, 3, 4, 5, 6, 7]::smallint[],
       coalesce(nullif(v_habit ->> 'timezone', ''), 'America/New_York'),
-      greatest(0, coalesce((v_habit ->> 'position')::integer, 0)),
+      greatest(
+        0,
+        coalesce(
+          coalesce(
+            v_habit ->> 'sort_position',
+            v_habit ->> 'position'
+          )::integer,
+          0
+        )
+      ),
       false,
       false
     )

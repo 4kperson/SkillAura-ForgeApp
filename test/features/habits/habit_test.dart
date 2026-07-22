@@ -12,7 +12,7 @@ void main() {
       'reminder_time': '09:30:00',
       'active_weekdays': [1, 3, 5],
       'timezone': 'Europe/London',
-      'position': 2,
+      'sort_position': 2,
       'paused': false,
       'archived': false,
       'xp_reward': 20,
@@ -30,6 +30,7 @@ void main() {
     expect(habit.reminderMinutes, 9 * 60 + 30);
     expect(habit.activeWeekdays, {1, 3, 5});
     expect(habit.timeZone, 'Europe/London');
+    expect(habit.sortPosition, 2);
     expect(habit.isComplete, isTrue);
     expect(habit.source, 'onboarding');
   });
