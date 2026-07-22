@@ -119,6 +119,13 @@ Reordering and permanent deletion also use ownership-checked functions;
 deletion removes that habit's history and reverses its recorded XP atomically.
 Existing owner-only RLS remains enabled for both tables.
 
+`HabitRepository` is the only Flutter boundary allowed to mutate a habit. It
+returns typed `Habit`, `HabitDraft`, `HabitCompletion`, and `HabitLibrary`
+models. `HabitEngineController` keeps confirmed server state, locks concurrent
+mutations per habit, reloads after every saved change, and rolls back an
+optimistic reorder if persistence fails. Presentation receives calm recovery
+copy rather than database exceptions.
+
 ## Branch policy
 - `main`: production-ready only.
 - `develop`: integration branch.

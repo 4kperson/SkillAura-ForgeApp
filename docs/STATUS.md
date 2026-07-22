@@ -192,3 +192,16 @@ Status: complete locally on 2026-07-22.
 - Kept owner-only RLS enabled, repaired missing policies idempotently, and
   revoked unsafe direct completion and habit-delete mutations.
 - Added server-side local-day eligibility using each habit's IANA timezone.
+
+## Milestone: typed Flutter habit engine
+
+Status: complete locally on 2026-07-22.
+
+- Added complete typed habit, draft, completion, completion-result, and library
+  domain models with legacy onboarding compatibility.
+- Added Supabase create, edit, pause, resume, archive, restore, delete, reorder,
+  complete, undo, and history repository operations.
+- Added a controller that prevents concurrent duplicate mutations, reloads
+  confirmed Supabase state after saves, and rolls back failed reorders.
+- Added validation and calm offline/save/load recovery messages that preserve
+  unsaved form input and confirmed server data.

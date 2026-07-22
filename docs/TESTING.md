@@ -56,3 +56,8 @@ Sprint 4 database tests assert that the migration is additive, owner-only RLS
 has no permissive `true` policy, completion mutation is server-owned, the
 habit/date key prevents duplicate completion and XP, and active-day evaluation
 uses the habit timezone on the server.
+
+Habit domain and controller tests cover full-row parsing, active and missed
+weekdays, paused/archived eligibility, reminder serialization, validation,
+recorded-XP history, create, edit, pause/resume, archive/restore, delete,
+reorder persistence, reorder rollback, failed save recovery, and load failure.
