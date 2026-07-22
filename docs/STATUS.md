@@ -161,3 +161,17 @@ Status: complete locally on 2026-07-22.
 - Turned the quiet Home reminder state into a premium, accessible action card.
 - Added service and widget coverage for Allow, Deny, Not now, Home recovery, and
   app-resume restoration.
+
+## Sprint 3 final acceptance fixes
+
+Status: complete locally on 2026-07-22.
+
+- Replaced the misleading incomplete-promise checkmark with distinct outline,
+  loading, and server-confirmed completion states.
+- Delayed XP and visual completion until the completion RPC succeeds while
+  preserving duplicate-tap protection and disappearing completed missions.
+- Made Supabase PKCE and automatic URI detection explicit at application startup.
+- Connected cold-start and foreground callback observation to session routing.
+- Added useful callback messages and resend recovery for expired, consumed, and
+  mismatched-PKCE confirmation links.
+- Documented the production Site URL and both required mobile redirect entries.

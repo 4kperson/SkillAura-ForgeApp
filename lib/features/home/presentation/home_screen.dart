@@ -201,6 +201,12 @@ class _MorningExperience extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final missionHabits = snapshot.habits
+        .where(
+          (habit) =>
+              !habit.isComplete || controller.isRecentlyCompleted(habit.id),
+        )
+        .toList(growable: false);
     return RefreshIndicator(
       color: AppColors.primaryBright,
       backgroundColor: AppColors.surfaceElevated,
@@ -234,27 +240,27 @@ class _MorningExperience extends StatelessWidget {
               switchOutCurve: Curves.easeInCubic,
               child: snapshot.habits.isEmpty
                   ? const _NoMissionsCard(key: ValueKey('empty'))
-                  : snapshot.remainingHabits.isEmpty
+                  : missionHabits.isEmpty
                   ? _DayCompleteCard(key: const ValueKey('complete'))
                   : Column(
-                      key: ValueKey(snapshot.remainingHabits.length),
+                      key: ValueKey(missionHabits.length),
                       children: [
                         for (
                           var index = 0;
-                          index < snapshot.remainingHabits.length;
+                          index < missionHabits.length;
                           index++
                         ) ...[
                           _MissionCard(
-                            habit: snapshot.remainingHabits[index],
-                            isNext: index == 0,
+                            habit: missionHabits[index],
+                            isNext:
+                                index == 0 && !missionHabits[index].isComplete,
                             isSaving: controller.isUpdating(
-                              snapshot.remainingHabits[index].id,
+                              missionHabits[index].id,
                             ),
-                            onComplete: () => controller.toggleHabit(
-                              snapshot.remainingHabits[index].id,
-                            ),
+                            onComplete: () =>
+                                controller.toggleHabit(missionHabits[index].id),
                           ),
-                          if (index < snapshot.remainingHabits.length - 1)
+                          if (index < missionHabits.length - 1)
                             const SizedBox(height: 11),
                         ],
                       ],
@@ -672,21 +678,28 @@ class _MissionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Complete ${habit.title} for ${habit.xp} XP',
+      checked: habit.isComplete,
+      label: habit.isComplete
+          ? '${habit.title} completed for ${habit.xp} XP'
+          : 'Complete ${habit.title} for ${habit.xp} XP',
       child: Material(
-        color: isNext
+        color: habit.isComplete
+            ? AppColors.success.withValues(alpha: .09)
+            : isNext
             ? AppColors.primary.withValues(alpha: .11)
             : Colors.white.withValues(alpha: .042),
         borderRadius: BorderRadius.circular(23),
         child: InkWell(
-          onTap: isSaving ? null : onComplete,
+          onTap: isSaving || habit.isComplete ? null : onComplete,
           borderRadius: BorderRadius.circular(23),
           child: Container(
             padding: const EdgeInsets.all(17),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(23),
               border: Border.all(
-                color: isNext
+                color: habit.isComplete
+                    ? AppColors.success.withValues(alpha: .24)
+                    : isNext
                     ? AppColors.primaryBright.withValues(alpha: .25)
                     : Colors.white.withValues(alpha: .075),
               ),
@@ -759,18 +772,46 @@ class _MissionCard extends StatelessWidget {
                       dimension: 30,
                       child: isSaving
                           ? const Padding(
+                              key: ValueKey('promise-loading'),
                               padding: EdgeInsets.all(7),
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const DecoratedBox(
+                          : habit.isComplete
+                          ? const DecoratedBox(
+                              key: ValueKey('promise-completed'),
                               decoration: BoxDecoration(
-                                color: AppColors.primary,
+                                color: AppColors.success,
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
                                 Icons.check_rounded,
                                 color: Colors.white,
                                 size: 17,
+                              ),
+                            )
+                          : DecoratedBox(
+                              key: const ValueKey('promise-incomplete'),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: .025),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.primaryBright.withValues(
+                                    alpha: .5,
+                                  ),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Center(
+                                child: Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryBright.withValues(
+                                      alpha: .16,
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
                               ),
                             ),
                     ),

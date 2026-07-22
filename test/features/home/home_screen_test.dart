@@ -29,10 +29,13 @@ void main() {
     },
   );
 
-  testWidgets('completing a real mission awards XP and removes its card', (
+  testWidgets('promise control reflects incomplete, loading, then confirmed', (
     tester,
   ) async {
-    final repository = _InteractiveMorningRepository(_snapshot());
+    final repository = _InteractiveMorningRepository(
+      _snapshot(),
+      saveDelay: const Duration(milliseconds: 40),
+    );
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark,
@@ -41,11 +44,26 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Deep work'));
-    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('promise-incomplete')), findsOneWidget);
+    expect(find.byKey(const ValueKey('promise-completed')), findsNothing);
 
+    await tester.tap(find.text('Deep work'));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('promise-loading')), findsOneWidget);
+    expect(repository.value.totalXp, 200);
+
+    await tester.pump(const Duration(milliseconds: 45));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('promise-completed')), findsOneWidget);
+    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
     expect(repository.value.totalXp, 240);
     expect(repository.value.completedCount, 1);
+
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
     expect(find.text('Deep work'), findsNothing);
     expect(find.text('Every promise kept.'), findsOneWidget);
     expect(find.text('240 TOTAL XP'), findsOneWidget);
@@ -190,9 +208,10 @@ MorningSnapshot _snapshot() => MorningSnapshot(
 );
 
 class _InteractiveMorningRepository implements MorningRepository {
-  _InteractiveMorningRepository(this.value);
+  _InteractiveMorningRepository(this.value, {this.saveDelay});
 
   MorningSnapshot value;
+  final Duration? saveDelay;
 
   @override
   Future<MorningSnapshot> load(DateTime date) async => value;
@@ -203,6 +222,7 @@ class _InteractiveMorningRepository implements MorningRepository {
     required DateTime date,
     required bool isComplete,
   }) async {
+    if (saveDelay case final delay?) await Future<void>.delayed(delay);
     final index = value.habits.indexWhere((habit) => habit.id == habitId);
     final habit = value.habits[index];
     final habits = [...value.habits]

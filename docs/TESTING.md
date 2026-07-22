@@ -44,3 +44,10 @@ cleanup failure; and restoration of the persisted notification preference. The
 final UX gate also covers Allow, Deny, Not now, native prompt versus settings
 selection, the actionable Home reminder card, and automatic restoration after
 returning from system settings.
+
+Sprint 3 final acceptance coverage verifies the exact signup and resend redirect,
+cold-start and already-running confirmation callbacks, session creation and
+routing, malformed callbacks, expired and consumed links, PKCE mismatch recovery,
+and the resend action. Morning tests verify that incomplete promises have no
+checkmark, loading blocks duplicate input, XP is not awarded before server
+success, and the confirmed check appears only after persistence succeeds.

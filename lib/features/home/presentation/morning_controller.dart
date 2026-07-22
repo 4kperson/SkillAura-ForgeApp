@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../data/morning_repository.dart';
@@ -6,12 +8,18 @@ import '../domain/morning_snapshot.dart';
 enum MorningStatus { loading, ready, failed }
 
 class MorningController extends ChangeNotifier {
-  MorningController(this._repository, {DateTime Function()? now})
-    : _now = now ?? DateTime.now;
+  MorningController(
+    this._repository, {
+    DateTime Function()? now,
+    this.confirmedStateDuration = const Duration(milliseconds: 650),
+  }) : _now = now ?? DateTime.now;
 
   final MorningRepository _repository;
   final DateTime Function() _now;
+  final Duration confirmedStateDuration;
   final Set<String> _updatingHabitIds = {};
+  final Set<String> _recentlyCompletedHabitIds = {};
+  final Map<String, Timer> _confirmedStateTimers = {};
 
   MorningStatus _status = MorningStatus.loading;
   MorningSnapshot? _snapshot;
@@ -21,6 +29,8 @@ class MorningController extends ChangeNotifier {
   MorningSnapshot? get snapshot => _snapshot;
   String? get errorMessage => _errorMessage;
   bool isUpdating(String habitId) => _updatingHabitIds.contains(habitId);
+  bool isRecentlyCompleted(String habitId) =>
+      _recentlyCompletedHabitIds.contains(habitId);
 
   Future<void> initialize() async {
     _status = MorningStatus.loading;
@@ -44,16 +54,9 @@ class MorningController extends ChangeNotifier {
     if (index < 0) return;
 
     final habit = current.habits[index];
-    final nextCompletion = !habit.isComplete;
-    final optimisticHabits = [...current.habits]
-      ..[index] = habit.copyWith(isComplete: nextCompletion);
-    final xpDelta = nextCompletion ? habit.xp : -habit.xp;
+    if (habit.isComplete) return;
 
     _updatingHabitIds.add(habitId);
-    _snapshot = current.copyWith(
-      habits: optimisticHabits,
-      totalXp: (current.totalXp + xpDelta).clamp(0, 1 << 31),
-    );
     _errorMessage = null;
     notifyListeners();
 
@@ -61,24 +64,49 @@ class MorningController extends ChangeNotifier {
       await _repository.setHabitCompletion(
         habitId: habitId,
         date: current.forDate,
-        isComplete: nextCompletion,
+        isComplete: true,
       );
     } catch (_) {
-      _snapshot = current;
       _errorMessage = 'That promise was not saved. Tap again to retry.';
       _updatingHabitIds.remove(habitId);
       notifyListeners();
       return;
     }
 
+    final confirmedHabits = [...current.habits]
+      ..[index] = habit.copyWith(isComplete: true);
+    _snapshot = current.copyWith(
+      habits: confirmedHabits,
+      totalXp: (current.totalXp + habit.xp).clamp(0, 1 << 31),
+    );
+    _updatingHabitIds.remove(habitId);
+    _recentlyCompletedHabitIds.add(habitId);
+    _scheduleConfirmedStateDismissal(habitId);
+    notifyListeners();
+
     try {
       _snapshot = await _repository.load(current.forDate);
     } catch (_) {
       _errorMessage =
           'Your promise is saved. Live streak details will refresh shortly.';
-    } finally {
-      _updatingHabitIds.remove(habitId);
-      notifyListeners();
     }
+    notifyListeners();
+  }
+
+  void _scheduleConfirmedStateDismissal(String habitId) {
+    _confirmedStateTimers.remove(habitId)?.cancel();
+    _confirmedStateTimers[habitId] = Timer(confirmedStateDuration, () {
+      _confirmedStateTimers.remove(habitId);
+      if (_recentlyCompletedHabitIds.remove(habitId)) notifyListeners();
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final timer in _confirmedStateTimers.values) {
+      timer.cancel();
+    }
+    _confirmedStateTimers.clear();
+    super.dispose();
   }
 }

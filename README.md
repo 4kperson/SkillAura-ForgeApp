@@ -84,11 +84,33 @@ the persisted profile and local schedule are refreshed automatically.
 
 ## Mobile email confirmation
 
-Supabase Flutter listens for the confirmation callback and exchanges its code or
-tokens for a persisted session. The native projects register this callback URI:
+Supabase Flutter is initialized with PKCE and automatic callback detection. It
+exchanges the callback code for a persisted session, while Forge separately
+classifies callback failures so expired, consumed, malformed, and mismatched
+PKCE links never leave the user on a blank or generic error state. The native
+projects register this callback URI:
 
 `com.skillaura.forge://login-callback/`
 
-In the Supabase dashboard, open **Authentication → URL Configuration → Redirect
-URLs** and add the exact URI above. Without this allow-list entry, confirmation
-links cannot return to the installed app.
+In the Supabase dashboard, open **Authentication → URL Configuration** and set:
+
+```text
+Site URL:
+https://skillaura.io
+
+Allowed Redirect URLs:
+com.skillaura.forge://login-callback/
+com.skillaura.forge://**
+```
+
+The exact URL is used by signup and resend. The wildcard supports callback
+parameters and future auth callback paths under the same private scheme. If the
+redirect is not allow-listed, Supabase falls back to the Site URL instead of
+returning to Forge. Keep the signup email template on Supabase's generated
+`{{ .ConfirmationURL }}` so verification remains on the secure hosted endpoint
+before redirecting into the app.
+
+Expired, consumed, and mismatched-PKCE callbacks offer **Resend confirmation**.
+Users enter their account email and Forge sends a new signup confirmation using
+the same mobile redirect. Only the newest link should be opened on the device
+that requested it.

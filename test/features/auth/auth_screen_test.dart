@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:forge_app/features/auth/data/auth_repository.dart';
 import 'package:forge_app/features/auth/presentation/auth_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
   Widget buildSubject() => const MaterialApp(home: AuthScreen());
@@ -42,4 +44,55 @@ void main() {
     expect(find.text('Enter a valid email address'), findsOneWidget);
     expect(find.text('Use at least 8 characters'), findsOneWidget);
   });
+
+  testWidgets('expired confirmation offers a working resend action', (
+    tester,
+  ) async {
+    final auth = _FakeAuthService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AuthScreen(
+          initialMessage:
+              'This confirmation link has expired. Please request a new one.',
+          canResendConfirmation: true,
+          authService: auth,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Resend confirmation'), findsOneWidget);
+    await tester.enterText(
+      find.byType(TextFormField).first,
+      'builder@example.com',
+    );
+    await tester.ensureVisible(find.text('Resend confirmation'));
+    await tester.tap(find.text('Resend confirmation'));
+    await tester.pumpAndSettle();
+
+    expect(auth.resentEmail, 'builder@example.com');
+    expect(find.textContaining('new confirmation email'), findsOneWidget);
+    expect(find.text('Resend confirmation'), findsNothing);
+  });
+}
+
+class _FakeAuthService implements AuthService {
+  String? resentEmail;
+
+  @override
+  Future<void> resendConfirmation({required String email}) async {
+    resentEmail = email;
+  }
+
+  @override
+  Future<AuthResponse> signIn({
+    required String email,
+    required String password,
+  }) async => AuthResponse();
+
+  @override
+  Future<AuthResponse> signUp({
+    required String email,
+    required String password,
+  }) async => AuthResponse();
 }

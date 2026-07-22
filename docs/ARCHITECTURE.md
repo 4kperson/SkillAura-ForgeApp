@@ -81,6 +81,29 @@ XP is modeled as cumulative progression through `LevelProgress`, including the
 current level floor, next level target, and remaining XP. UI percentages are a
 derived presentation detail rather than the source of truth.
 
+## Email confirmation boundary
+
+`Supabase.initialize` explicitly enables PKCE and SDK URI-session detection.
+`AppLinksEmailConfirmationLinkSource` observes both the cold-start URI and links
+received while Forge is already running. `SessionController` holds the splash
+while a valid callback is exchanging, then routes from the resulting Supabase
+auth event. It classifies error callbacks independently so malformed, expired,
+consumed, and mismatched-verifier links reach the existing Auth screen with a
+recoverable message. Supabase remains responsible for code exchange and session
+persistence; Forge never attempts a second exchange.
+
+The callback target is validated as scheme `com.skillaura.forge` and host
+`login-callback`. Android registers both values in its browsable intent filter;
+iOS registers the custom scheme and Forge validates the host in Dart.
+
+## Mission completion state
+
+An incomplete mission remains unchanged while its server completion is pending.
+The controller locks duplicate taps and the card shows a loading control. XP and
+the completed state appear only after the completion RPC succeeds. A short
+confirmed check state then transitions to the existing disappearing-card and
+day-complete behavior.
+
 ## Branch policy
 - `main`: production-ready only.
 - `develop`: integration branch.

@@ -9,6 +9,7 @@ import '../core/config/app_env.dart';
 import '../core/theme/app_theme.dart';
 import '../features/auth/presentation/auth_screen.dart';
 import '../features/auth/presentation/session_controller.dart';
+import '../features/auth/data/email_confirmation_link_source.dart';
 import '../features/home/presentation/home_screen.dart';
 import '../features/home/data/morning_repository.dart';
 import '../features/onboarding/data/notification_permission_service.dart';
@@ -61,6 +62,9 @@ class _ForgeAppState extends State<ForgeApp> {
           AppEnv.hasSupabaseConfig
               ? SupabaseSessionSource(Supabase.instance.client)
               : const UnauthenticatedSessionSource(),
+          confirmationLinks: AppEnv.hasSupabaseConfig
+              ? AppLinksEmailConfirmationLinkSource()
+              : null,
         );
     _onboardingRepository =
         widget.onboardingRepository ??
@@ -122,8 +126,10 @@ class _ForgeAppState extends State<ForgeApp> {
         ),
         GoRoute(
           path: '/auth',
-          builder: (_, _) =>
-              AuthScreen(initialMessage: _session.callbackErrorMessage),
+          builder: (_, _) => AuthScreen(
+            initialMessage: _session.callbackErrorMessage,
+            canResendConfirmation: _session.canResendConfirmation,
+          ),
         ),
         GoRoute(
           path: '/onboarding',

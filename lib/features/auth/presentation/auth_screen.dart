@@ -8,9 +8,16 @@ import '../data/auth_error_mapper.dart';
 import '../data/auth_repository.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key, this.initialMessage});
+  const AuthScreen({
+    super.key,
+    this.initialMessage,
+    this.canResendConfirmation = false,
+    this.authService,
+  });
 
   final String? initialMessage;
+  final bool canResendConfirmation;
+  final AuthService? authService;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -27,21 +34,25 @@ class _AuthScreenState extends State<AuthScreen> {
   var _submitted = false;
   String? _message;
   var _messageIsSuccess = false;
+  var _showResendAction = false;
 
   @override
   void initState() {
     super.initState();
     _message = widget.initialMessage;
+    _showResendAction = widget.canResendConfirmation;
   }
 
   @override
   void didUpdateWidget(covariant AuthScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialMessage != oldWidget.initialMessage &&
+    if ((widget.initialMessage != oldWidget.initialMessage ||
+            widget.canResendConfirmation != oldWidget.canResendConfirmation) &&
         widget.initialMessage != null) {
       setState(() {
         _message = widget.initialMessage;
         _messageIsSuccess = false;
+        _showResendAction = widget.canResendConfirmation;
       });
     }
   }
@@ -60,6 +71,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _message = null;
       _messageIsSuccess = false;
       _submitted = false;
+      _showResendAction = false;
     });
   }
 
@@ -67,7 +79,7 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _submitted = true);
     if (!_formKey.currentState!.validate()) return;
 
-    if (!AppEnv.hasSupabaseConfig) {
+    if (widget.authService == null && !AppEnv.hasSupabaseConfig) {
       setState(() {
         _message = AuthErrorMapper.missingConfigurationMessage;
         _messageIsSuccess = false;
@@ -83,7 +95,8 @@ class _AuthScreenState extends State<AuthScreen> {
     });
 
     try {
-      final repository = AuthRepository(Supabase.instance.client);
+      final repository =
+          widget.authService ?? AuthRepository(Supabase.instance.client);
       final response = _isSignUp
           ? await repository.signUp(
               email: _email.text.trim(),
@@ -98,6 +111,7 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() {
           _message = 'Confirmation sent. Check your inbox to continue.';
           _messageIsSuccess = true;
+          _showResendAction = false;
         });
       } else if (mounted) {
         context.go('/home');
@@ -114,6 +128,58 @@ class _AuthScreenState extends State<AuthScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  Future<void> _resendConfirmation() async {
+    final email = _email.text.trim();
+    if (!_isValidEmail(email)) {
+      setState(() {
+        _message = 'Enter the email address for your Forge account first.';
+        _messageIsSuccess = false;
+      });
+      return;
+    }
+    if (widget.authService == null && !AppEnv.hasSupabaseConfig) {
+      setState(() {
+        _message = AuthErrorMapper.missingConfigurationMessage;
+        _messageIsSuccess = false;
+      });
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _isLoading = true;
+      _message = null;
+      _messageIsSuccess = false;
+    });
+    try {
+      final repository =
+          widget.authService ?? AuthRepository(Supabase.instance.client);
+      await repository.resendConfirmation(email: email);
+      if (mounted) {
+        setState(() {
+          _message =
+              'A new confirmation email is on its way. Open the newest link on this device.';
+          _messageIsSuccess = true;
+          _showResendAction = false;
+        });
+      }
+    } catch (error, stackTrace) {
+      AuthErrorMapper.logSafely(error, stackTrace);
+      if (mounted) {
+        setState(() {
+          _message = AuthErrorMapper.messageFor(error);
+          _messageIsSuccess = false;
+          _showResendAction = true;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  static bool _isValidEmail(String value) =>
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
 
   @override
   Widget build(BuildContext context) {
@@ -193,11 +259,13 @@ class _AuthScreenState extends State<AuthScreen> {
                             submitted: _submitted,
                             message: _message,
                             messageIsSuccess: _messageIsSuccess,
+                            showResendAction: _showResendAction,
                             onModeChanged: _selectMode,
                             onPasswordVisibilityChanged: () => setState(
                               () => _obscurePassword = !_obscurePassword,
                             ),
                             onSubmit: _submit,
+                            onResendConfirmation: _resendConfirmation,
                           ),
                           const SizedBox(height: 18),
                           Text(
@@ -329,9 +397,11 @@ class _CredentialPanel extends StatelessWidget {
     required this.submitted,
     required this.message,
     required this.messageIsSuccess,
+    required this.showResendAction,
     required this.onModeChanged,
     required this.onPasswordVisibilityChanged,
     required this.onSubmit,
+    required this.onResendConfirmation,
   });
 
   final bool compact;
@@ -344,9 +414,11 @@ class _CredentialPanel extends StatelessWidget {
   final bool submitted;
   final String? message;
   final bool messageIsSuccess;
+  final bool showResendAction;
   final ValueChanged<bool> onModeChanged;
   final VoidCallback onPasswordVisibilityChanged;
   final VoidCallback onSubmit;
+  final VoidCallback onResendConfirmation;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -431,6 +503,12 @@ class _CredentialPanel extends StatelessWidget {
                     child: _StatusMessage(
                       message: message!,
                       success: messageIsSuccess,
+                      actionLabel: showResendAction
+                          ? 'Resend confirmation'
+                          : null,
+                      onAction: showResendAction && !isLoading
+                          ? onResendConfirmation
+                          : null,
                     ),
                   ),
           ),
@@ -633,10 +711,17 @@ class _FieldLabel extends StatelessWidget {
 }
 
 class _StatusMessage extends StatelessWidget {
-  const _StatusMessage({required this.message, required this.success});
+  const _StatusMessage({
+    required this.message,
+    required this.success,
+    this.actionLabel,
+    this.onAction,
+  });
 
   final String message;
   final bool success;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -658,13 +743,37 @@ class _StatusMessage extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              message,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: color,
-                height: 1.35,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: color,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (actionLabel case final label?) ...[
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: onAction,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textPrimary,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      minimumSize: const Size(48, 44),
+                      backgroundColor: color.withValues(alpha: .14),
+                    ),
+                    child: Text(
+                      label,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],

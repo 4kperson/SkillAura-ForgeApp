@@ -11,6 +11,7 @@ void main() {
       repository,
       now: () => DateTime(2026, 7, 21, 8),
     );
+    addTearDown(controller.dispose);
 
     await controller.initialize();
 
@@ -18,9 +19,10 @@ void main() {
     expect(controller.snapshot?.displayName, 'Brian');
   });
 
-  test('optimistically completes a habit and persists it', () async {
+  test('completes a habit and awards XP after persistence succeeds', () async {
     final repository = _MemoryMorningRepository(_snapshot());
     final controller = MorningController(repository);
+    addTearDown(controller.dispose);
     await controller.initialize();
 
     await controller.toggleHabit('focus');
@@ -31,9 +33,35 @@ void main() {
     expect(repository.lastCompletion, isTrue);
   });
 
+  test(
+    'keeps a promise incomplete while server confirmation is pending',
+    () async {
+      final repository = _MemoryMorningRepository(
+        _snapshot(),
+        saveDelay: const Duration(milliseconds: 20),
+      );
+      final controller = MorningController(repository);
+      addTearDown(controller.dispose);
+      await controller.initialize();
+
+      final completion = controller.toggleHabit('focus');
+
+      expect(controller.isUpdating('focus'), isTrue);
+      expect(controller.snapshot?.habits.first.isComplete, isFalse);
+      expect(controller.snapshot?.totalXp, 200);
+
+      await completion;
+
+      expect(controller.isUpdating('focus'), isFalse);
+      expect(controller.snapshot?.habits.first.isComplete, isTrue);
+      expect(controller.snapshot?.totalXp, 240);
+    },
+  );
+
   test('rolls back an optimistic completion when persistence fails', () async {
     final repository = _MemoryMorningRepository(_snapshot(), shouldFail: true);
     final controller = MorningController(repository);
+    addTearDown(controller.dispose);
     await controller.initialize();
 
     await controller.toggleHabit('focus');
@@ -51,6 +79,7 @@ void main() {
         saveDelay: const Duration(milliseconds: 20),
       );
       final controller = MorningController(repository);
+      addTearDown(controller.dispose);
       await controller.initialize();
 
       final first = controller.toggleHabit('focus');

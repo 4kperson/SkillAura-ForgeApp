@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forge_app/app/app.dart';
+import 'package:forge_app/features/auth/data/email_confirmation_link_source.dart';
 import 'package:forge_app/features/auth/presentation/session_controller.dart';
 import 'package:forge_app/features/home/data/morning_repository.dart';
 import 'package:forge_app/features/home/domain/morning_snapshot.dart';
@@ -54,6 +55,69 @@ void main() {
     await tester.pumpWidget(
       ForgeApp(sessionController: controller, initialLocation: '/auth'),
     );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Make today count.'), findsOneWidget);
+  });
+
+  testWidgets(
+    'confirmation after a cold start opens onboarding for a new user',
+    (tester) async {
+      final source = _FakeSessionSource();
+      final onboarding = _FakeOnboardingRepository(const OnboardingProfile());
+      final links = _FakeConfirmationLinks(
+        initial: Uri.parse(
+          'com.skillaura.forge://login-callback/?code=confirmation-code',
+        ),
+      );
+      final controller = SessionController(source, confirmationLinks: links);
+      addTearDown(() async {
+        controller.dispose();
+        await source.dispose();
+        await links.dispose();
+      });
+
+      await tester.pumpWidget(
+        ForgeApp(
+          sessionController: controller,
+          onboardingRepository: onboarding,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      source.signIn();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(find.text('You already took\nthe hardest step.'), findsOneWidget);
+      expect(find.text('Make today count.'), findsNothing);
+      expect(find.text('Return to the\nwork that matters.'), findsNothing);
+    },
+  );
+
+  testWidgets('confirmation received while open creates a session', (
+    tester,
+  ) async {
+    final source = _FakeSessionSource();
+    final links = _FakeConfirmationLinks();
+    final controller = SessionController(source, confirmationLinks: links);
+    addTearDown(() async {
+      controller.dispose();
+      await source.dispose();
+      await links.dispose();
+    });
+
+    await tester.pumpWidget(ForgeApp(sessionController: controller));
+    await tester.pumpAndSettle();
+    expect(find.text('Return to the\nwork that matters.'), findsOneWidget);
+
+    links.add(
+      Uri.parse('com.skillaura.forge://login-callback/?code=confirmation-code'),
+    );
+    await tester.pump();
+    source.signIn();
     await tester.pumpAndSettle();
 
     expect(find.text('Make today count.'), findsOneWidget);
@@ -421,6 +485,23 @@ class _FakeSessionSource implements SessionSource {
     signedIn = true;
     _changes.add(true);
   }
+
+  Future<void> dispose() => _changes.close();
+}
+
+class _FakeConfirmationLinks implements EmailConfirmationLinkSource {
+  _FakeConfirmationLinks({this.initial});
+
+  final Uri? initial;
+  final _changes = StreamController<Uri>.broadcast();
+
+  @override
+  Future<Uri?> initialLink() async => initial;
+
+  @override
+  Stream<Uri> get links => _changes.stream;
+
+  void add(Uri uri) => _changes.add(uri);
 
   Future<void> dispose() => _changes.close();
 }
