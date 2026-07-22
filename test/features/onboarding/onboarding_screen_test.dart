@@ -9,7 +9,7 @@ import 'package:forge_app/features/onboarding/presentation/onboarding_screen.dar
 void main() {
   Widget subject(
     OnboardingRepository repository, {
-    VoidCallback? onCompleted,
+    ValueChanged<OnboardingProfile>? onCompleted,
   }) => MaterialApp(
     theme: AppTheme.dark,
     home: OnboardingScreen(
@@ -129,6 +129,7 @@ void main() {
   testWidgets('denied notifications are acknowledged before continuing', (
     tester,
   ) async {
+    var completed = false;
     final repository = _MemoryOnboardingRepository(
       const OnboardingProfile(currentStep: 5),
     );
@@ -140,6 +141,7 @@ void main() {
           notificationPermissionService: _FakeNotificationService(
             permission: NotificationPreference.denied,
           ),
+          onCompleted: (_) => completed = true,
         ),
       ),
     );
@@ -153,15 +155,20 @@ void main() {
       NotificationPreference.denied,
     );
     expect(repository.value.currentStep, 5);
-    expect(find.text('CHOICE RESPECTED'), findsOneWidget);
+    expect(find.text('REMINDERS ARE OFF'), findsOneWidget);
+    expect(
+      find.text('Notifications are\ncurrently turned off.'),
+      findsOneWidget,
+    );
+    expect(find.text('Enable reminders'), findsOneWidget);
     expect(find.text('Continue without reminders'), findsOneWidget);
     expect(find.textContaining('inside the app instead'), findsNothing);
 
     await tester.tap(find.text('Continue without reminders'));
     await tester.pumpAndSettle();
 
-    expect(repository.value.currentStep, 6);
-    expect(find.text('Your first promise\nis waiting.'), findsOneWidget);
+    expect(repository.value.isCompleted, isTrue);
+    expect(completed, isTrue);
   });
 
   testWidgets('denied choice stays calm when cleanup cannot run', (
@@ -192,7 +199,7 @@ void main() {
     await tester.tap(find.text('Keep me on track'));
     await tester.pumpAndSettle();
 
-    expect(find.text('CHOICE RESPECTED'), findsOneWidget);
+    expect(find.text('REMINDERS ARE OFF'), findsOneWidget);
     expect(find.textContaining('could not be prepared'), findsNothing);
     expect(find.textContaining('could not be cleared'), findsNothing);
   });
@@ -229,8 +236,11 @@ void main() {
     expect(find.textContaining('could not be prepared'), findsOneWidget);
   });
 
-  testWidgets('skipping advances even when cleanup cannot run', (tester) async {
+  testWidgets('Not now uses the same disabled screen without requesting', (
+    tester,
+  ) async {
     var requested = false;
+    var completed = false;
     final repository = _MemoryOnboardingRepository(
       const OnboardingProfile(currentStep: 5),
     );
@@ -249,6 +259,7 @@ void main() {
               cancellationState: ReminderCancellationState.failed,
             ),
           ),
+          onCompleted: (_) => completed = true,
         ),
       ),
     );
@@ -262,8 +273,135 @@ void main() {
       NotificationPreference.skipped,
     );
     expect(requested, isFalse);
-    expect(find.text('Your first promise\nis waiting.'), findsOneWidget);
+    expect(repository.value.currentStep, 5);
+    expect(find.text('REMINDERS ARE OFF'), findsOneWidget);
+    expect(
+      find.text('Notifications are\ncurrently turned off.'),
+      findsOneWidget,
+    );
+    expect(find.text('Enable reminders'), findsOneWidget);
     expect(find.textContaining('could not be cleared'), findsNothing);
+
+    await tester.tap(find.text('Continue without reminders'));
+    await tester.pumpAndSettle();
+
+    expect(repository.value.isCompleted, isTrue);
+    expect(completed, isTrue);
+  });
+
+  testWidgets('unified reminder-off screen is safe on a compact phone', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: OnboardingScreen(
+          repository: _MemoryOnboardingRepository(
+            const OnboardingProfile(
+              currentStep: 5,
+              notificationPreference: NotificationPreference.skipped,
+            ),
+          ),
+          notificationPermissionService: _FakeNotificationService(
+            permission: NotificationPreference.denied,
+          ),
+          onCompleted: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Notifications are\ncurrently turned off.'),
+      findsOneWidget,
+    );
+    expect(find.text('Enable reminders'), findsOneWidget);
+    expect(find.text('Continue without reminders'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Enable reminders recovers a skipped choice', (tester) async {
+    final repository = _MemoryOnboardingRepository(
+      const OnboardingProfile(
+        currentStep: 5,
+        notificationPreference: NotificationPreference.skipped,
+      ),
+    );
+    final notifications = _FakeNotificationService(
+      permission: NotificationPreference.granted,
+      recoveryResult: const NotificationRecoveryResult(
+        state: NotificationRecoveryState.granted,
+        preference: NotificationPreference.granted,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: OnboardingScreen(
+          repository: repository,
+          notificationPermissionService: notifications,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Enable reminders'));
+    await tester.pumpAndSettle();
+
+    expect(notifications.recoveryCalls, 1);
+    expect(
+      repository.value.notificationPreference,
+      NotificationPreference.granted,
+    );
+    expect(repository.value.currentStep, 6);
+    expect(find.text('Your first promise\nis waiting.'), findsOneWidget);
+  });
+
+  testWidgets('returning from settings restores reminders and continues', (
+    tester,
+  ) async {
+    final repository = _MemoryOnboardingRepository(
+      const OnboardingProfile(
+        currentStep: 5,
+        notificationPreference: NotificationPreference.denied,
+      ),
+    );
+    final notifications = _FakeNotificationService(
+      permission: NotificationPreference.denied,
+      permissionOnResume: NotificationPreference.granted,
+      recoveryResult: const NotificationRecoveryResult(
+        state: NotificationRecoveryState.settingsOpened,
+        preference: NotificationPreference.denied,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: OnboardingScreen(
+          repository: repository,
+          notificationPermissionService: notifications,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Enable reminders'));
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(
+      repository.value.notificationPreference,
+      NotificationPreference.granted,
+    );
+    expect(repository.value.currentStep, 6);
+    expect(find.text('Your first promise\nis waiting.'), findsOneWidget);
   });
 
   testWidgets('Start Day One persists completion before handoff', (
@@ -274,7 +412,7 @@ void main() {
       const OnboardingProfile(currentStep: 6),
     );
     await tester.pumpWidget(
-      subject(repository, onCompleted: () => completed = true),
+      subject(repository, onCompleted: (_) => completed = true),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
@@ -292,18 +430,39 @@ class _FakeNotificationService implements NotificationPermissionService {
     required this.permission,
     this.onRequest,
     this.syncResult,
+    this.recoveryResult,
+    this.permissionOnResume,
   });
 
   final NotificationPreference permission;
   final VoidCallback? onRequest;
   final NotificationSyncResult? syncResult;
+  final NotificationRecoveryResult? recoveryResult;
+  final NotificationPreference? permissionOnResume;
   final List<OnboardingProfile> synchronizedProfiles = [];
+  var recoveryCalls = 0;
 
   @override
   Future<NotificationPreference> requestPermission() async {
     onRequest?.call();
     return permission;
   }
+
+  @override
+  Future<NotificationRecoveryResult> helpEnable(
+    NotificationPreference currentPreference,
+  ) async {
+    recoveryCalls++;
+    return recoveryResult ??
+        NotificationRecoveryResult(
+          state: NotificationRecoveryState.denied,
+          preference: currentPreference,
+        );
+  }
+
+  @override
+  Future<NotificationPreference?> currentPermission() async =>
+      permissionOnResume ?? permission;
 
   @override
   Future<NotificationSyncResult> synchronize(OnboardingProfile profile) async {

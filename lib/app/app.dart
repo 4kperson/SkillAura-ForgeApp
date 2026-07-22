@@ -130,8 +130,8 @@ class _ForgeAppState extends State<ForgeApp> {
           builder: (_, _) => OnboardingScreen(
             repository: _onboardingRepository,
             notificationPermissionService: _notificationPermissionService,
-            onCompleted: () {
-              _onboardingGate.markCompleted();
+            onCompleted: (profile) {
+              _onboardingGate.markCompleted(profile);
               _router.go('/home');
             },
           ),
@@ -141,6 +141,8 @@ class _ForgeAppState extends State<ForgeApp> {
           builder: (_, _) => HomeScreen(
             repository: _morningRepository,
             onSignOut: _session.signOut,
+            onEnableReminders: _enableHomeReminders,
+            onRefreshReminderPermission: _refreshHomeReminderPermission,
           ),
         ),
       ],
@@ -164,17 +166,105 @@ class _ForgeAppState extends State<ForgeApp> {
         !profile.isCompleted) {
       return;
     }
-    final fingerprint = [
-      profile.notificationPreference.name,
-      profile.timeZone,
-      profile.wakeTimeMinutes,
-      profile.sleepTimeMinutes,
-      profile.disciplineLevel?.name,
-      ...profile.goals.map((goal) => goal.name),
-    ].join(':');
+    final fingerprint = _notificationFingerprint(profile);
     if (_notificationSyncFingerprint == fingerprint) return;
     _notificationSyncFingerprint = fingerprint;
     unawaited(_synchronizePersistedNotifications(profile, fingerprint));
+  }
+
+  String _notificationFingerprint(OnboardingProfile profile) => [
+    profile.notificationPreference.name,
+    profile.timeZone,
+    profile.wakeTimeMinutes,
+    profile.sleepTimeMinutes,
+    profile.disciplineLevel?.name,
+    ...profile.goals.map((goal) => goal.name),
+  ].join(':');
+
+  Future<NotificationRecoveryResult> _enableHomeReminders() async {
+    final profile = _onboardingGate.profile;
+    if (profile == null) {
+      return const NotificationRecoveryResult(
+        state: NotificationRecoveryState.failed,
+        preference: NotificationPreference.denied,
+      );
+    }
+    final recovery = await _notificationPermissionService.helpEnable(
+      profile.notificationPreference,
+    );
+    if (recovery.isGranted) return _activateHomeReminders(profile);
+    if (recovery.state == NotificationRecoveryState.denied &&
+        recovery.preference != profile.notificationPreference) {
+      await _persistNotificationPreference(profile, recovery.preference);
+    }
+    return recovery;
+  }
+
+  Future<bool> _refreshHomeReminderPermission() async {
+    final profile = _onboardingGate.profile;
+    if (profile == null) return false;
+    final permission = await _notificationPermissionService.currentPermission();
+    if (permission != NotificationPreference.granted) return false;
+    final result = await _activateHomeReminders(profile);
+    return result.isGranted;
+  }
+
+  Future<NotificationRecoveryResult> _activateHomeReminders(
+    OnboardingProfile profile,
+  ) async {
+    final updated = profile.copyWith(
+      notificationPreference: NotificationPreference.granted,
+    );
+    try {
+      final synchronized = await _notificationPermissionService.synchronize(
+        updated,
+      );
+      if (!synchronized.remindersReady) {
+        return NotificationRecoveryResult(
+          state: NotificationRecoveryState.failed,
+          preference: profile.notificationPreference,
+        );
+      }
+      await _onboardingRepository.save(updated);
+      _notificationSyncFingerprint = _notificationFingerprint(updated);
+      _onboardingGate.updateProfile(updated);
+      return const NotificationRecoveryResult(
+        state: NotificationRecoveryState.granted,
+        preference: NotificationPreference.granted,
+      );
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('[notifications] Home recovery failed: $error');
+        debugPrintStack(
+          label: '[notifications] Home recovery stack trace',
+          stackTrace: stackTrace,
+        );
+      }
+      return NotificationRecoveryResult(
+        state: NotificationRecoveryState.failed,
+        preference: profile.notificationPreference,
+      );
+    }
+  }
+
+  Future<void> _persistNotificationPreference(
+    OnboardingProfile profile,
+    NotificationPreference preference,
+  ) async {
+    final updated = profile.copyWith(notificationPreference: preference);
+    try {
+      await _onboardingRepository.save(updated);
+      _notificationSyncFingerprint = _notificationFingerprint(updated);
+      _onboardingGate.updateProfile(updated);
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('[notifications] permission state save failed: $error');
+        debugPrintStack(
+          label: '[notifications] permission state save stack trace',
+          stackTrace: stackTrace,
+        );
+      }
+    }
   }
 
   Future<void> _synchronizePersistedNotifications(

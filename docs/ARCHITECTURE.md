@@ -69,6 +69,14 @@ The Morning snapshot reads `notifications_enabled` from the same profile query
 that supplies XP and streak data. This keeps Supabase authoritative without an
 extra Home request and lets the interface acknowledge when reminders are quiet.
 
+Permission recovery is also owned by `NotificationPermissionService`. It uses
+the native request when the operating system can still present one and opens
+platform app settings after a permanent Android denial or an iOS denial. Both
+onboarding and Home observe app resume, re-check native permission, schedule
+reminders, and only then persist `granted`. `OnboardingGateController` receives
+that saved profile immediately, avoiding a duplicate profile query or reminder
+sync during the same transition.
+
 XP is modeled as cumulative progression through `LevelProgress`, including the
 current level floor, next level target, and remaining XP. UI percentages are a
 derived presentation detail rather than the source of truth.

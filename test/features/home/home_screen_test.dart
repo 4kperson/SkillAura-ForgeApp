@@ -5,6 +5,8 @@ import 'package:forge_app/features/habits/domain/habit.dart';
 import 'package:forge_app/features/home/data/morning_repository.dart';
 import 'package:forge_app/features/home/domain/morning_snapshot.dart';
 import 'package:forge_app/features/home/presentation/home_screen.dart';
+import 'package:forge_app/features/onboarding/data/notification_permission_service.dart';
+import 'package:forge_app/features/onboarding/domain/onboarding_profile.dart';
 
 void main() {
   testWidgets(
@@ -72,25 +74,78 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('shows a quiet reminder state when notifications are disabled', (
-    tester,
-  ) async {
+  testWidgets('disabled reminder card is clearly actionable', (tester) async {
     final snapshot = _snapshot().copyWith(notificationsEnabled: false);
+    final repository = _InteractiveMorningRepository(snapshot);
+    var enableCalls = 0;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark,
         home: HomeScreen(
-          repository: _InteractiveMorningRepository(snapshot),
+          repository: repository,
           onSignOut: () async {},
+          onEnableReminders: () async {
+            enableCalls++;
+            repository.value = repository.value.copyWith(
+              notificationsEnabled: true,
+            );
+            return const NotificationRecoveryResult(
+              state: NotificationRecoveryState.granted,
+              preference: NotificationPreference.granted,
+            );
+          },
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Reminders are quiet · enable later in Settings'),
-      findsOneWidget,
+    expect(find.text('Reminders are off'), findsOneWidget);
+    expect(find.text('Tap to enable your daily cues'), findsOneWidget);
+
+    await tester.tap(find.text('Reminders are off'));
+    await tester.pumpAndSettle();
+
+    expect(enableCalls, 1);
+    expect(find.text('Reminders are off'), findsNothing);
+  });
+
+  testWidgets('returning from settings refreshes the reminder card', (
+    tester,
+  ) async {
+    final repository = _InteractiveMorningRepository(
+      _snapshot().copyWith(notificationsEnabled: false),
     );
+    var refreshCalls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: HomeScreen(
+          repository: repository,
+          onSignOut: () async {},
+          onEnableReminders: () async => const NotificationRecoveryResult(
+            state: NotificationRecoveryState.settingsOpened,
+            preference: NotificationPreference.denied,
+          ),
+          onRefreshReminderPermission: () async {
+            refreshCalls++;
+            repository.value = repository.value.copyWith(
+              notificationsEnabled: true,
+            );
+            return true;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Reminders are off'));
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(refreshCalls, 1);
+    expect(find.text('Reminders are off'), findsNothing);
   });
 
   testWidgets('an empty plan is not presented as a completed day', (

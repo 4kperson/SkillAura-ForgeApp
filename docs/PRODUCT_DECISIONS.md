@@ -57,3 +57,8 @@ and continues without guilt or repeated pressure.
   fixed reminder ID range, so non-granted consent cannot affect other apps.
 - Daily reminders use the device IANA time zone and inexact Android delivery,
   preserving local wall-clock intent without an exact-alarm permission prompt.
+- Denied and skipped choices intentionally converge on one calm explanation.
+  Continuing completes onboarding without pressure; enabling uses the native
+  prompt or app settings according to the current platform and permission state.
+- Home retains a clearly actionable reminder card while access is disabled, so
+  the choice remains reversible without interrupting the Morning Experience.

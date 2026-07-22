@@ -12,7 +12,27 @@ import '../domain/onboarding_profile.dart';
 abstract interface class NotificationPermissionService {
   Future<NotificationPreference> requestPermission();
 
+  Future<NotificationRecoveryResult> helpEnable(
+    NotificationPreference currentPreference,
+  );
+
+  Future<NotificationPreference?> currentPermission();
+
   Future<NotificationSyncResult> synchronize(OnboardingProfile profile);
+}
+
+enum NotificationRecoveryState { granted, settingsOpened, denied, failed }
+
+class NotificationRecoveryResult {
+  const NotificationRecoveryResult({
+    required this.state,
+    required this.preference,
+  });
+
+  final NotificationRecoveryState state;
+  final NotificationPreference preference;
+
+  bool get isGranted => state == NotificationRecoveryState.granted;
 }
 
 enum ReminderSchedulingState { notRequested, scheduled, failed }
@@ -56,20 +76,34 @@ abstract interface class LocalNotificationPlatform {
   Future<void> schedule(int id, DailyReminder reminder);
 }
 
+abstract interface class NativeNotificationPermissionGateway {
+  TargetPlatform get targetPlatform;
+
+  Future<PermissionStatus> status();
+
+  Future<PermissionStatus> request();
+
+  Future<bool> openSettings();
+}
+
 class DeviceNotificationPermissionService
     implements NotificationPermissionService {
-  DeviceNotificationPermissionService({LocalNotificationPlatform? platform})
-    : _platform = platform ?? FlutterLocalNotificationPlatform();
+  DeviceNotificationPermissionService({
+    LocalNotificationPlatform? platform,
+    NativeNotificationPermissionGateway? permissions,
+  }) : _platform = platform ?? FlutterLocalNotificationPlatform(),
+       _permissions = permissions ?? PermissionHandlerNotificationGateway();
 
   static const reminderIds = <int>[4100, 4101, 4102];
 
   final LocalNotificationPlatform _platform;
+  final NativeNotificationPermissionGateway _permissions;
   Future<void>? _initialization;
 
   @override
   Future<NotificationPreference> requestPermission() async {
     try {
-      final status = await Permission.notification.request();
+      final status = await _permissions.request();
       _logSuccess('permission request', status.name);
       return notificationPreferenceFor(status);
     } catch (error, stackTrace) {
@@ -77,6 +111,94 @@ class DeviceNotificationPermissionService
       rethrow;
     }
   }
+
+  @override
+  Future<NotificationRecoveryResult> helpEnable(
+    NotificationPreference currentPreference,
+  ) async {
+    try {
+      final currentStatus = await _runOperation(
+        'permission status check',
+        _permissions.status,
+      );
+      if (_isAccepted(currentStatus)) {
+        return const NotificationRecoveryResult(
+          state: NotificationRecoveryState.granted,
+          preference: NotificationPreference.granted,
+        );
+      }
+
+      if (_requiresSettings(currentPreference, currentStatus)) {
+        return await _openSettings(currentPreference);
+      }
+
+      final requestedStatus = await _runOperation(
+        'permission recovery request',
+        _permissions.request,
+      );
+      if (_isAccepted(requestedStatus)) {
+        return const NotificationRecoveryResult(
+          state: NotificationRecoveryState.granted,
+          preference: NotificationPreference.granted,
+        );
+      }
+      if (requestedStatus.isPermanentlyDenied) {
+        return await _openSettings(NotificationPreference.denied);
+      }
+      return const NotificationRecoveryResult(
+        state: NotificationRecoveryState.denied,
+        preference: NotificationPreference.denied,
+      );
+    } catch (_) {
+      return NotificationRecoveryResult(
+        state: NotificationRecoveryState.failed,
+        preference: currentPreference,
+      );
+    }
+  }
+
+  @override
+  Future<NotificationPreference?> currentPermission() async {
+    try {
+      final status = await _runOperation(
+        'permission resume check',
+        _permissions.status,
+      );
+      return notificationPreferenceFor(status);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _requiresSettings(
+    NotificationPreference currentPreference,
+    PermissionStatus status,
+  ) {
+    if (status.isPermanentlyDenied || status.isRestricted) return true;
+    final settingsOnlyPlatform =
+        _permissions.targetPlatform == TargetPlatform.iOS ||
+        _permissions.targetPlatform == TargetPlatform.macOS;
+    return settingsOnlyPlatform &&
+        currentPreference == NotificationPreference.denied;
+  }
+
+  Future<NotificationRecoveryResult> _openSettings(
+    NotificationPreference currentPreference,
+  ) async {
+    final opened = await _runOperation(
+      'notification settings launch',
+      _permissions.openSettings,
+    );
+    return NotificationRecoveryResult(
+      state: opened
+          ? NotificationRecoveryState.settingsOpened
+          : NotificationRecoveryState.failed,
+      preference: currentPreference,
+    );
+  }
+
+  static bool _isAccepted(PermissionStatus status) =>
+      status.isGranted || status.isProvisional;
 
   @override
   Future<NotificationSyncResult> synchronize(OnboardingProfile profile) async {
@@ -249,6 +371,21 @@ class DeviceNotificationPermissionService
   }
 }
 
+class PermissionHandlerNotificationGateway
+    implements NativeNotificationPermissionGateway {
+  @override
+  TargetPlatform get targetPlatform => defaultTargetPlatform;
+
+  @override
+  Future<bool> openSettings() => openAppSettings();
+
+  @override
+  Future<PermissionStatus> request() => Permission.notification.request();
+
+  @override
+  Future<PermissionStatus> status() => Permission.notification.status;
+}
+
 class FlutterLocalNotificationPlatform implements LocalNotificationPlatform {
   FlutterLocalNotificationPlatform({
     FlutterLocalNotificationsPlugin? notifications,
@@ -393,6 +530,20 @@ class DisabledNotificationPermissionService
 
   @override
   Future<NotificationPreference> requestPermission() async =>
+      NotificationPreference.denied;
+
+  @override
+  Future<NotificationRecoveryResult> helpEnable(
+    NotificationPreference currentPreference,
+  ) async => NotificationRecoveryResult(
+    state: NotificationRecoveryState.denied,
+    preference: currentPreference == NotificationPreference.undecided
+        ? NotificationPreference.denied
+        : currentPreference,
+  );
+
+  @override
+  Future<NotificationPreference?> currentPermission() async =>
       NotificationPreference.denied;
 
   @override

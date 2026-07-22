@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forge_app/features/onboarding/data/notification_permission_service.dart';
 import 'package:forge_app/features/onboarding/domain/onboarding_profile.dart';
@@ -31,6 +32,94 @@ void main() {
     expect(ids.toSet(), hasLength(ids.length));
     expect(ids, everyElement(greaterThanOrEqualTo(0)));
   });
+
+  test(
+    'skipped recovery uses the native prompt when still available',
+    () async {
+      final permissions = _FakePermissionGateway(
+        currentStatus: PermissionStatus.denied,
+        requestedStatus: PermissionStatus.granted,
+      );
+      final service = DeviceNotificationPermissionService(
+        platform: _FakeNotificationPlatform(),
+        permissions: permissions,
+      );
+
+      final result = await service.helpEnable(NotificationPreference.skipped);
+
+      expect(result.state, NotificationRecoveryState.granted);
+      expect(permissions.requestCalls, 1);
+      expect(permissions.openSettingsCalls, 0);
+    },
+  );
+
+  test('iOS denial recovery opens app settings without re-prompting', () async {
+    final permissions = _FakePermissionGateway(
+      targetPlatform: TargetPlatform.iOS,
+      currentStatus: PermissionStatus.denied,
+    );
+    final service = DeviceNotificationPermissionService(
+      platform: _FakeNotificationPlatform(),
+      permissions: permissions,
+    );
+
+    final result = await service.helpEnable(NotificationPreference.denied);
+
+    expect(result.state, NotificationRecoveryState.settingsOpened);
+    expect(permissions.requestCalls, 0);
+    expect(permissions.openSettingsCalls, 1);
+  });
+
+  test('Android denial recovery uses an available native re-prompt', () async {
+    final permissions = _FakePermissionGateway(
+      currentStatus: PermissionStatus.denied,
+      requestedStatus: PermissionStatus.granted,
+    );
+    final service = DeviceNotificationPermissionService(
+      platform: _FakeNotificationPlatform(),
+      permissions: permissions,
+    );
+
+    final result = await service.helpEnable(NotificationPreference.denied);
+
+    expect(result.state, NotificationRecoveryState.granted);
+    expect(permissions.requestCalls, 1);
+    expect(permissions.openSettingsCalls, 0);
+  });
+
+  test('permanent denial recovery opens platform app settings', () async {
+    final permissions = _FakePermissionGateway(
+      currentStatus: PermissionStatus.permanentlyDenied,
+    );
+    final service = DeviceNotificationPermissionService(
+      platform: _FakeNotificationPlatform(),
+      permissions: permissions,
+    );
+
+    final result = await service.helpEnable(NotificationPreference.denied);
+
+    expect(result.state, NotificationRecoveryState.settingsOpened);
+    expect(permissions.requestCalls, 0);
+    expect(permissions.openSettingsCalls, 1);
+  });
+
+  test(
+    'resume check observes permission enabled in platform settings',
+    () async {
+      final permissions = _FakePermissionGateway(
+        currentStatus: PermissionStatus.granted,
+      );
+      final service = DeviceNotificationPermissionService(
+        platform: _FakeNotificationPlatform(),
+        permissions: permissions,
+      );
+
+      final preference = await service.currentPermission();
+
+      expect(preference, NotificationPreference.granted);
+      expect(permissions.statusCalls, 1);
+    },
+  );
 
   test('builds one daily reminder for each personalized starter habit', () {
     const profile = OnboardingProfile(
@@ -264,5 +353,40 @@ class _FakeNotificationPlatform implements LocalNotificationPlatform {
     if (id == failingScheduleId) throw StateError('schedule failed');
     scheduledIds.add(id);
     pendingIds.add(id);
+  }
+}
+
+class _FakePermissionGateway implements NativeNotificationPermissionGateway {
+  _FakePermissionGateway({
+    this.targetPlatform = TargetPlatform.android,
+    required this.currentStatus,
+    this.requestedStatus = PermissionStatus.denied,
+  });
+
+  @override
+  final TargetPlatform targetPlatform;
+  PermissionStatus currentStatus;
+  final PermissionStatus requestedStatus;
+  var statusCalls = 0;
+  var requestCalls = 0;
+  var openSettingsCalls = 0;
+
+  @override
+  Future<bool> openSettings() async {
+    openSettingsCalls++;
+    return true;
+  }
+
+  @override
+  Future<PermissionStatus> request() async {
+    requestCalls++;
+    currentStatus = requestedStatus;
+    return requestedStatus;
+  }
+
+  @override
+  Future<PermissionStatus> status() async {
+    statusCalls++;
+    return currentStatus;
   }
 }

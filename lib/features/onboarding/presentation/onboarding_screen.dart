@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -21,22 +22,25 @@ class OnboardingScreen extends StatefulWidget {
 
   final OnboardingRepository? repository;
   final NotificationPermissionService notificationPermissionService;
-  final VoidCallback? onCompleted;
+  final ValueChanged<OnboardingProfile>? onCompleted;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends State<OnboardingScreen>
+    with WidgetsBindingObserver {
   late final OnboardingController _controller;
   late final PageController _pages;
   var _pageReady = false;
   var _notificationActionInProgress = false;
+  var _awaitingNotificationSettings = false;
   String? _notificationActionError;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final repository =
         widget.repository ??
         SupabaseOnboardingRepository(Supabase.instance.client);
@@ -60,11 +64,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller
       ..removeListener(_onChanged)
       ..dispose();
     _pages.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed ||
+        !_awaitingNotificationSettings ||
+        _notificationActionInProgress) {
+      return;
+    }
+    _awaitingNotificationSettings = false;
+    unawaited(_restoreNotificationPermission());
   }
 
   Future<void> _goTo(int step) async {
@@ -86,20 +102,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     try {
       final preference = await widget.notificationPermissionService
           .requestPermission();
-      final saved = await _controller.setNotificationPreference(preference);
-      if (!saved) return;
-      final result = await widget.notificationPermissionService.synchronize(
-        _controller.profile,
-      );
-      if (!mounted) return;
-      if (preference == NotificationPreference.granted &&
-          result.remindersReady) {
-        await _goTo(6);
-      } else if (preference == NotificationPreference.granted) {
-        setState(() {
-          _notificationActionError =
-              'Your choice was saved, but reminders could not be prepared. Please try once more.';
-        });
+      if (preference == NotificationPreference.granted) {
+        await _activateNotifications();
+      } else {
+        final saved = await _controller.setNotificationPreference(preference);
+        if (saved) {
+          await widget.notificationPermissionService.synchronize(
+            _controller.profile,
+          );
+        }
       }
     } catch (error, stackTrace) {
       assert(() {
@@ -145,15 +156,88 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           return true;
         }());
       }
-      if (mounted) await _goTo(6);
     }
     if (mounted) setState(() => _notificationActionInProgress = false);
+  }
+
+  Future<void> _helpEnableNotifications() async {
+    if (_notificationActionInProgress) return;
+    setState(() {
+      _notificationActionInProgress = true;
+      _notificationActionError = null;
+    });
+    try {
+      final recovery = await widget.notificationPermissionService.helpEnable(
+        _controller.profile.notificationPreference,
+      );
+      if (!mounted) return;
+      switch (recovery.state) {
+        case NotificationRecoveryState.granted:
+          await _activateNotifications();
+          break;
+        case NotificationRecoveryState.settingsOpened:
+          _awaitingNotificationSettings = true;
+          break;
+        case NotificationRecoveryState.denied:
+          if (_controller.profile.notificationPreference !=
+              recovery.preference) {
+            await _controller.setNotificationPreference(recovery.preference);
+          }
+          break;
+        case NotificationRecoveryState.failed:
+          setState(() {
+            _notificationActionError =
+                'Forge could not open notification settings. Please try again.';
+          });
+          break;
+      }
+    } finally {
+      if (mounted) setState(() => _notificationActionInProgress = false);
+    }
+  }
+
+  Future<void> _restoreNotificationPermission() async {
+    if (!mounted || _notificationActionInProgress) return;
+    setState(() {
+      _notificationActionInProgress = true;
+      _notificationActionError = null;
+    });
+    try {
+      final preference = await widget.notificationPermissionService
+          .currentPermission();
+      if (preference == NotificationPreference.granted) {
+        await _activateNotifications();
+      }
+    } finally {
+      if (mounted) setState(() => _notificationActionInProgress = false);
+    }
+  }
+
+  Future<void> _activateNotifications() async {
+    final candidate = _controller.profile.copyWith(
+      notificationPreference: NotificationPreference.granted,
+    );
+    final result = await widget.notificationPermissionService.synchronize(
+      candidate,
+    );
+    if (!mounted) return;
+    if (!result.remindersReady) {
+      setState(() {
+        _notificationActionError =
+            'Notifications are enabled, but reminders could not be prepared. Please try again.';
+      });
+      return;
+    }
+    final saved = await _controller.setNotificationPreference(
+      NotificationPreference.granted,
+    );
+    if (saved && mounted) await _goTo(6);
   }
 
   Future<void> _finish() async {
     if (!await _controller.complete() || !mounted) return;
     if (widget.onCompleted case final callback?) {
-      callback();
+      callback(_controller.profile);
     } else {
       context.go('/home');
     }
@@ -199,7 +283,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       OnboardingStatus.completed when !_pageReady => _LoadingState(
         onReady: () {
           if (widget.onCompleted case final callback?) {
-            callback();
+            callback(_controller.profile);
           } else {
             context.go('/home');
           }
@@ -211,6 +295,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         onNext: _goTo,
         onRequestNotifications: _requestNotifications,
         onSkipNotifications: _skipNotifications,
+        onEnableNotifications: _helpEnableNotifications,
         onFinish: _finish,
         notificationActionInProgress: _notificationActionInProgress,
         notificationActionError: _notificationActionError,
@@ -226,6 +311,7 @@ class _Journey extends StatelessWidget {
     required this.onNext,
     required this.onRequestNotifications,
     required this.onSkipNotifications,
+    required this.onEnableNotifications,
     required this.onFinish,
     required this.notificationActionInProgress,
     required this.notificationActionError,
@@ -236,6 +322,7 @@ class _Journey extends StatelessWidget {
   final Future<void> Function(int) onNext;
   final VoidCallback onRequestNotifications;
   final VoidCallback onSkipNotifications;
+  final VoidCallback onEnableNotifications;
   final VoidCallback onFinish;
   final bool notificationActionInProgress;
   final String? notificationActionError;
@@ -270,7 +357,8 @@ class _Journey extends StatelessWidget {
                 isBusy: notificationActionInProgress,
                 onAllow: onRequestNotifications,
                 onSkip: onSkipNotifications,
-                onContinueDenied: () => onNext(6),
+                onEnable: onEnableNotifications,
+                onContinueDenied: onFinish,
               ),
               _CompletionStep(profile: controller.profile, onFinish: onFinish),
             ],
@@ -767,25 +855,31 @@ class _NotificationStep extends StatelessWidget {
     required this.isBusy,
     required this.onAllow,
     required this.onSkip,
+    required this.onEnable,
     required this.onContinueDenied,
   });
   final NotificationPreference preference;
   final bool isBusy;
   final VoidCallback onAllow;
   final VoidCallback onSkip;
+  final VoidCallback onEnable;
   final VoidCallback onContinueDenied;
 
   @override
   Widget build(BuildContext context) {
-    if (preference == NotificationPreference.denied) {
+    if (preference == NotificationPreference.denied ||
+        preference == NotificationPreference.skipped) {
       return _StepFrame(
-        eyebrow: 'Choice respected',
-        title: 'Your attention stays\nin your hands.',
+        eyebrow: 'Reminders are off',
+        title: 'Notifications are\ncurrently turned off.',
         body:
-            'Without notification access, Forge will stay quiet outside the app. Your plan remains complete and you can enable reminders later.',
-        primaryLabel: 'Continue without reminders',
+            "Forge will still work perfectly, but it won't be able to remind you when it's time to build your habits.",
+        primaryLabel: isBusy ? 'Checking reminders...' : 'Enable reminders',
         primaryEnabled: !isBusy,
-        onPrimary: onContinueDenied,
+        onPrimary: onEnable,
+        secondary: 'Continue without reminders',
+        secondaryEnabled: !isBusy,
+        onSecondary: onContinueDenied,
         content: const _NotificationTradeoff(),
       );
     }

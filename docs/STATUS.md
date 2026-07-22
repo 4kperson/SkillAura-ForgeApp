@@ -148,3 +148,16 @@ Status: complete locally on 2026-07-22.
   from consent so denied and skipped users never receive a false error banner.
 - Added operation-level debug exceptions and stack traces, partial-schedule
   rollback, and regression coverage for successful and failed native outcomes.
+
+## Final notification UX polish
+
+Status: complete locally on 2026-07-22.
+
+- Unified denied permission and **Not now** behind one respectful reminder-off
+  screen with clear enable and continue actions.
+- Added platform-aware recovery through the native prompt or system app settings.
+- Made returning from settings restore permission, scheduling, and the persisted
+  profile before advancing or refreshing Home.
+- Turned the quiet Home reminder state into a premium, accessible action card.
+- Added service and widget coverage for Allow, Deny, Not now, Home recovery, and
+  app-resume restoration.

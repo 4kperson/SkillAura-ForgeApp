@@ -75,6 +75,13 @@ then cancel or schedule Forge-owned IDs `4100` through `4102`. Cancelling when
 no reminders exist is a successful no-op. Cleanup failures are logged in debug
 builds but never block a denied or skipped onboarding choice.
 
+Denied permission and **Not now** share one respectful recovery experience.
+Users can continue directly to Home or ask Forge to enable reminders. Forge
+uses the native prompt while it is still available and opens the app's system
+settings when the platform requires it. Home keeps a subtle, tappable reminder
+card visible until access is granted; returning from settings is detected and
+the persisted profile and local schedule are refreshed automatically.
+
 ## Mobile email confirmation
 
 Supabase Flutter listens for the confirmation callback and exchanges its code or

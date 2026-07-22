@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forge_app/app/app.dart';
 import 'package:forge_app/features/auth/presentation/session_controller.dart';
+import 'package:forge_app/features/home/data/morning_repository.dart';
+import 'package:forge_app/features/home/domain/morning_snapshot.dart';
 import 'package:forge_app/features/onboarding/data/notification_permission_service.dart';
 import 'package:forge_app/features/onboarding/data/onboarding_repository.dart';
 import 'package:forge_app/features/onboarding/domain/onboarding_profile.dart';
@@ -196,6 +198,55 @@ void main() {
     );
   });
 
+  testWidgets('Home reminder recovery persists access and removes the card', (
+    tester,
+  ) async {
+    final source = _FakeSessionSource(signedIn: true);
+    final controller = SessionController(source);
+    final morning = _FakeMorningRepository();
+    final notifications = _FakeNotificationPermissionService(
+      recoveryResult: const NotificationRecoveryResult(
+        state: NotificationRecoveryState.granted,
+        preference: NotificationPreference.granted,
+      ),
+    );
+    final onboarding = _FakeOnboardingRepository(
+      const OnboardingProfile(
+        isCompleted: true,
+        notificationPreference: NotificationPreference.skipped,
+      ),
+      onSaved: (profile) {
+        morning.notificationsEnabled =
+            profile.notificationPreference == NotificationPreference.granted;
+      },
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await source.dispose();
+    });
+
+    await tester.pumpWidget(
+      ForgeApp(
+        sessionController: controller,
+        onboardingRepository: onboarding,
+        morningRepository: morning,
+        notificationPermissionService: notifications,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reminders are off'), findsOneWidget);
+    await tester.tap(find.text('Reminders are off'));
+    await tester.pumpAndSettle();
+
+    expect(notifications.recoveryCalls, 1);
+    expect(
+      onboarding.value.notificationPreference,
+      NotificationPreference.granted,
+    );
+    expect(find.text('Reminders are off'), findsNothing);
+  });
+
   testWidgets('app restart restores an authenticated user directly to Home', (
     tester,
   ) async {
@@ -271,7 +322,7 @@ void main() {
       await advance('Build around my rhythm');
       await advance('Commit to this Day One');
       await advance('Not now');
-      await advance('Start Day One');
+      await advance('Continue without reminders');
 
       expect(onboarding.value.isCompleted, isTrue);
       expect(onboarding.completeCalls, 1);
@@ -375,10 +426,11 @@ class _FakeSessionSource implements SessionSource {
 }
 
 class _FakeOnboardingRepository implements OnboardingRepository {
-  _FakeOnboardingRepository(this.value, {this.loadCallback});
+  _FakeOnboardingRepository(this.value, {this.loadCallback, this.onSaved});
 
   OnboardingProfile value;
   final Future<OnboardingProfile> Function()? loadCallback;
+  final ValueChanged<OnboardingProfile>? onSaved;
   int completeCalls = 0;
 
   @override
@@ -386,7 +438,10 @@ class _FakeOnboardingRepository implements OnboardingRepository {
       loadCallback?.call() ?? Future.value(value);
 
   @override
-  Future<void> save(OnboardingProfile profile) async => value = profile;
+  Future<void> save(OnboardingProfile profile) async {
+    value = profile;
+    onSaved?.call(profile);
+  }
 
   @override
   Future<void> complete(OnboardingProfile profile) async {
@@ -397,10 +452,30 @@ class _FakeOnboardingRepository implements OnboardingRepository {
 
 class _FakeNotificationPermissionService
     implements NotificationPermissionService {
+  _FakeNotificationPermissionService({this.recoveryResult});
+
+  final NotificationRecoveryResult? recoveryResult;
   final List<OnboardingProfile> synchronizedProfiles = [];
+  var recoveryCalls = 0;
 
   @override
   Future<NotificationPreference> requestPermission() async =>
+      NotificationPreference.denied;
+
+  @override
+  Future<NotificationRecoveryResult> helpEnable(
+    NotificationPreference currentPreference,
+  ) async {
+    recoveryCalls++;
+    return recoveryResult ??
+        NotificationRecoveryResult(
+          state: NotificationRecoveryState.denied,
+          preference: currentPreference,
+        );
+  }
+
+  @override
+  Future<NotificationPreference?> currentPermission() async =>
       NotificationPreference.denied;
 
   @override
@@ -416,4 +491,28 @@ class _FakeNotificationPermissionService
       cancellationState: ReminderCancellationState.nothingToCancel,
     );
   }
+}
+
+class _FakeMorningRepository implements MorningRepository {
+  var notificationsEnabled = false;
+
+  @override
+  Future<MorningSnapshot> load(DateTime date) async => MorningSnapshot(
+    displayName: 'Builder',
+    identityLabel: 'someone who keeps promises',
+    dayNumber: 1,
+    totalXp: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    habits: const [],
+    forDate: DateTime(date.year, date.month, date.day),
+    notificationsEnabled: notificationsEnabled,
+  );
+
+  @override
+  Future<void> setHabitCompletion({
+    required String habitId,
+    required DateTime date,
+    required bool isComplete,
+  }) async {}
 }

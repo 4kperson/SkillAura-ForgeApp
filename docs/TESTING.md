@@ -40,4 +40,7 @@ unique completion key remains the final protection against duplicate XP awards.
 Notification lifecycle tests cover granted scheduling success and rollback on
 failure; denied and skipped cleanup with zero or existing reminders; cleanup
 requested before initialization; calm denied/skipped UI behavior after a native
-cleanup failure; and restoration of the persisted notification preference.
+cleanup failure; and restoration of the persisted notification preference. The
+final UX gate also covers Allow, Deny, Not now, native prompt versus settings
+selection, the actionable Home reminder card, and automatic restoration after
+returning from system settings.

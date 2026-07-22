@@ -43,9 +43,18 @@ class OnboardingGateController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void markCompleted() {
-    if (_status == OnboardingGateStatus.completed) return;
+  void markCompleted([OnboardingProfile? profile]) {
+    _profile = profile ?? _profile;
+    if (_status == OnboardingGateStatus.completed && profile == null) return;
     _status = OnboardingGateStatus.completed;
+    notifyListeners();
+  }
+
+  void updateProfile(OnboardingProfile profile) {
+    _profile = profile;
+    _status = profile.isCompleted
+        ? OnboardingGateStatus.completed
+        : OnboardingGateStatus.required;
     notifyListeners();
   }
 

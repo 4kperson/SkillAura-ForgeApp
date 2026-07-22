@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../habits/domain/habit.dart';
+import '../../onboarding/data/notification_permission_service.dart';
+import '../../onboarding/domain/onboarding_profile.dart';
 import '../data/morning_repository.dart';
 import '../domain/morning_snapshot.dart';
 import 'morning_controller.dart';
@@ -11,21 +15,37 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.onSignOut,
+    this.onEnableReminders = _unavailableReminderRecovery,
+    this.onRefreshReminderPermission = _unavailablePermissionRefresh,
   });
 
   final MorningRepository repository;
   final Future<void> Function() onSignOut;
+  final Future<NotificationRecoveryResult> Function() onEnableReminders;
+  final Future<bool> Function() onRefreshReminderPermission;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+Future<NotificationRecoveryResult> _unavailableReminderRecovery() async =>
+    const NotificationRecoveryResult(
+      state: NotificationRecoveryState.failed,
+      preference: NotificationPreference.denied,
+    );
+
+Future<bool> _unavailablePermissionRefresh() async => false;
+
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   late final MorningController _controller;
+  var _reminderActionInProgress = false;
+  var _awaitingNotificationSettings = false;
+  String? _reminderActionError;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _controller = MorningController(widget.repository)
       ..addListener(_onChanged)
       ..initialize();
@@ -37,10 +57,67 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller
       ..removeListener(_onChanged)
       ..dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed ||
+        !_awaitingNotificationSettings ||
+        _reminderActionInProgress) {
+      return;
+    }
+    _awaitingNotificationSettings = false;
+    unawaited(_restoreReminderPermission());
+  }
+
+  Future<void> _enableReminders() async {
+    if (_reminderActionInProgress) return;
+    setState(() {
+      _reminderActionInProgress = true;
+      _reminderActionError = null;
+    });
+    try {
+      final recovery = await widget.onEnableReminders();
+      if (!mounted) return;
+      switch (recovery.state) {
+        case NotificationRecoveryState.granted:
+          await _controller.initialize();
+          break;
+        case NotificationRecoveryState.settingsOpened:
+          _awaitingNotificationSettings = true;
+          break;
+        case NotificationRecoveryState.denied:
+          break;
+        case NotificationRecoveryState.failed:
+          setState(() {
+            _reminderActionError =
+                'Forge could not open notification settings. Please try again.';
+          });
+          break;
+      }
+    } finally {
+      if (mounted) setState(() => _reminderActionInProgress = false);
+    }
+  }
+
+  Future<void> _restoreReminderPermission() async {
+    if (!mounted || _reminderActionInProgress) return;
+    setState(() {
+      _reminderActionInProgress = true;
+      _reminderActionError = null;
+    });
+    try {
+      if (await widget.onRefreshReminderPermission()) {
+        await _controller.initialize();
+      }
+    } finally {
+      if (mounted) setState(() => _reminderActionInProgress = false);
+    }
   }
 
   @override
@@ -96,6 +173,9 @@ class _HomeScreenState extends State<HomeScreen> {
       controller: _controller,
       onSignOut: widget.onSignOut,
       onRefresh: _controller.initialize,
+      onEnableReminders: _enableReminders,
+      reminderActionInProgress: _reminderActionInProgress,
+      reminderActionError: _reminderActionError,
     );
   }
 }
@@ -106,12 +186,18 @@ class _MorningExperience extends StatelessWidget {
     required this.controller,
     required this.onSignOut,
     required this.onRefresh,
+    required this.onEnableReminders,
+    required this.reminderActionInProgress,
+    required this.reminderActionError,
   });
 
   final MorningSnapshot snapshot;
   final MorningController controller;
   final Future<void> Function() onSignOut;
   final Future<void> Function() onRefresh;
+  final VoidCallback onEnableReminders;
+  final bool reminderActionInProgress;
+  final String? reminderActionError;
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +214,11 @@ class _MorningExperience extends StatelessWidget {
           _IdentityBanner(identity: snapshot.identityLabel),
           if (!snapshot.notificationsEnabled) ...[
             const SizedBox(height: 10),
-            const _ReminderStatus(),
+            _ReminderStatus(
+              isBusy: reminderActionInProgress,
+              message: reminderActionError,
+              onTap: onEnableReminders,
+            ),
           ],
           const SizedBox(height: 14),
           _ProgressHero(snapshot: snapshot),
@@ -296,38 +386,99 @@ class _IdentityBanner extends StatelessWidget {
 }
 
 class _ReminderStatus extends StatelessWidget {
-  const _ReminderStatus();
+  const _ReminderStatus({
+    required this.isBusy,
+    required this.message,
+    required this.onTap,
+  });
+
+  final bool isBusy;
+  final String? message;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Reminders are off. They can be enabled later in Settings.',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .035),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: .065)),
+      button: true,
+      enabled: !isBusy,
+      label: 'Reminders are off. Tap to enable reminders.',
+      child: Material(
+        color: AppColors.primary.withValues(alpha: .075),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: AppColors.primaryBright.withValues(alpha: .18),
+          ),
         ),
-        child: const Row(
-          children: [
-            Icon(
-              Icons.notifications_off_outlined,
-              color: AppColors.textSecondary,
-              size: 17,
-            ),
-            SizedBox(width: 9),
-            Expanded(
-              child: Text(
-                'Reminders are quiet · enable later in Settings',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: isBusy ? null : onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: .18),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.notifications_off_outlined,
+                    color: AppColors.primaryBright,
+                    size: 20,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Reminders are off',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        message ?? 'Tap to enable your daily cues',
+                        style: TextStyle(
+                          color: message == null
+                              ? AppColors.textSecondary
+                              : const Color(0xFFFFC2CD),
+                          fontSize: 11,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: isBusy
+                      ? const SizedBox(
+                          key: ValueKey('loading'),
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(
+                          Icons.arrow_forward_rounded,
+                          key: ValueKey('arrow'),
+                          color: AppColors.primaryBright,
+                          size: 20,
+                        ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
