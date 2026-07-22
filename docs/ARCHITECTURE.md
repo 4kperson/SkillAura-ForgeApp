@@ -104,6 +104,21 @@ the completed state appear only after the completion RPC succeeds. A short
 confirmed check state then transitions to the existing disappearing-card and
 day-complete behavior.
 
+## Habit engine database boundary
+
+The Sprint 4 schema extends the existing onboarding habits in place. It does
+not create a parallel promise model. Habit scheduling carries explicit ISO
+weekdays and an IANA timezone; `get_today_habits` evaluates both on the server,
+including daylight-saving and midnight boundaries. The client never decides
+that an inactive local day is eligible for XP.
+
+Completion and undo use `set_habit_completion_v2`. A unique habit/date index is
+the final duplicate guard, and the XP recorded on each completion is the exact
+amount reversed by undo. Direct completion writes are revoked from the client.
+Reordering and permanent deletion also use ownership-checked functions;
+deletion removes that habit's history and reverses its recorded XP atomically.
+Existing owner-only RLS remains enabled for both tables.
+
 ## Branch policy
 - `main`: production-ready only.
 - `develop`: integration branch.

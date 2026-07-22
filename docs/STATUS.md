@@ -175,3 +175,20 @@ Status: complete locally on 2026-07-22.
 - Added useful callback messages and resend recovery for expired, consumed, and
   mismatched-PKCE confirmation links.
 - Documented the production Site URL and both required mobile redirect entries.
+
+# Sprint 4 Status
+
+## Milestone: secure habit-engine schema
+
+Status: complete locally on 2026-07-22.
+
+- Expanded every existing onboarding habit in place with category, symbol,
+  reminder, active weekdays, timezone, order, paused, archived, and update
+  metadata.
+- Expanded completion history with its effective local date, completion time,
+  awarded XP, and source while preserving legacy fields and rows.
+- Added unique duplicate-completion protection and server-owned completion,
+  undo, reorder, and permanent-delete operations.
+- Kept owner-only RLS enabled, repaired missing policies idempotently, and
+  revoked unsafe direct completion and habit-delete mutations.
+- Added server-side local-day eligibility using each habit's IANA timezone.

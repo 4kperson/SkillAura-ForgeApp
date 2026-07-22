@@ -60,6 +60,16 @@ The product-stability release requires
 - restores missing habit tables, policies, trigger, and RPCs idempotently for
   projects whose earliest schema migration only partially completed.
 
+Sprint 4 requires `202607220001_habit_engine.sql`. Run it after the product
+stability migration. It preserves the onboarding-generated habits and adds the
+editable category, symbol, reminder, weekday, timezone, order, paused,
+archived, and update fields. It also records completion dates, completion
+timestamps, awarded XP, and source while retaining the legacy compatibility
+columns. Completion, undo, reorder, and permanent deletion use authenticated
+server functions so XP and history remain atomic. The migration is additive,
+idempotent, and contains verification queries for columns, RLS, policies,
+indexes, and functions.
+
 ## Daily reminders
 
 Forge requests notification access only after its onboarding explanation. A

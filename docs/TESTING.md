@@ -51,3 +51,8 @@ routing, malformed callbacks, expired and consumed links, PKCE mismatch recovery
 and the resend action. Morning tests verify that incomplete promises have no
 checkmark, loading blocks duplicate input, XP is not awarded before server
 success, and the confirmed check appears only after persistence succeeds.
+
+Sprint 4 database tests assert that the migration is additive, owner-only RLS
+has no permissive `true` policy, completion mutation is server-owned, the
+habit/date key prevents duplicate completion and XP, and active-day evaluation
+uses the habit timezone on the server.
