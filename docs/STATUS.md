@@ -142,3 +142,9 @@ Status: complete locally on 2026-07-22.
 - Removed unused Riverpod, RevenueCat, and starter utility dependencies.
 - Added routing, restart, reminder-plan, denied-state, empty-state, and duplicate
   XP-tap regression coverage.
+- Repaired Android notification initialization with a dedicated drawable status
+  icon, explicit channel creation, and ordered one-time initialization.
+- Made cancellation idempotent for fresh installs and separated cleanup results
+  from consent so denied and skipped users never receive a false error banner.
+- Added operation-level debug exceptions and stack traces, partial-schedule
+  rollback, and regression coverage for successful and failed native outcomes.

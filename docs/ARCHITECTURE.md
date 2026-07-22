@@ -57,6 +57,14 @@ denied, or skipped state to Supabase, then synchronizes device reminders. The
 application also synchronizes the persisted profile once after an authenticated
 cold start. Non-granted states always cancel Forge-owned reminder identifiers.
 
+The service reports permission, scheduling, and cancellation independently.
+Initialization is shared and awaited exactly once per service instance in this
+order: time-zone database and local zone, platform plugin, Android channel.
+Scheduling uses unique IDs `4100`-`4102` with inexact allow-while-idle delivery;
+it does not require exact-alarm access. Cancellation first inspects pending
+requests and treats an empty result as success. Every native operation logs its
+exception and complete stack trace in debug builds without including secrets.
+
 The Morning snapshot reads `notifications_enabled` from the same profile query
 that supplies XP and streak data. This keeps Supabase authoritative without an
 extra Home request and lets the interface acknowledge when reminders are quiet.

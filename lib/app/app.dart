@@ -174,14 +174,34 @@ class _ForgeAppState extends State<ForgeApp> {
     ].join(':');
     if (_notificationSyncFingerprint == fingerprint) return;
     _notificationSyncFingerprint = fingerprint;
-    unawaited(
-      _notificationPermissionService.synchronize(profile).catchError((error) {
+    unawaited(_synchronizePersistedNotifications(profile, fingerprint));
+  }
+
+  Future<void> _synchronizePersistedNotifications(
+    OnboardingProfile profile,
+    String fingerprint,
+  ) async {
+    try {
+      final result = await _notificationPermissionService.synchronize(profile);
+      final grantedButUnavailable =
+          profile.notificationPreference == NotificationPreference.granted &&
+          !result.remindersReady;
+      if (grantedButUnavailable &&
+          _notificationSyncFingerprint == fingerprint) {
         _notificationSyncFingerprint = null;
-        if (kDebugMode) {
-          debugPrint('Could not synchronize reminders: $error');
-        }
-      }),
-    );
+      }
+    } catch (error, stackTrace) {
+      if (_notificationSyncFingerprint == fingerprint) {
+        _notificationSyncFingerprint = null;
+      }
+      if (kDebugMode) {
+        debugPrint('[notifications] persisted synchronization failed: $error');
+        debugPrintStack(
+          label: '[notifications] persisted synchronization stack trace',
+          stackTrace: stackTrace,
+        );
+      }
+    }
   }
 
   @override

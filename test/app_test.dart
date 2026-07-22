@@ -404,7 +404,16 @@ class _FakeNotificationPermissionService
       NotificationPreference.denied;
 
   @override
-  Future<void> synchronize(OnboardingProfile profile) async {
+  Future<NotificationSyncResult> synchronize(OnboardingProfile profile) async {
     synchronizedProfiles.add(profile);
+    return NotificationSyncResult(
+      permissionState: profile.notificationPreference,
+      initializationSucceeded: true,
+      schedulingState:
+          profile.notificationPreference == NotificationPreference.granted
+          ? ReminderSchedulingState.scheduled
+          : ReminderSchedulingState.notRequested,
+      cancellationState: ReminderCancellationState.nothingToCancel,
+    );
   }
 }

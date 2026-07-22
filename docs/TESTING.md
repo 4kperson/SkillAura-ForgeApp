@@ -36,3 +36,8 @@ restart, Home after onboarding and reauthentication, granted/denied permission
 mapping, personalized reminder times, the disabled-reminder Home state, the
 zero-mission recovery state, and duplicate completion taps. The server RPC's
 unique completion key remains the final protection against duplicate XP awards.
+
+Notification lifecycle tests cover granted scheduling success and rollback on
+failure; denied and skipped cleanup with zero or existing reminders; cleanup
+requested before initialization; calm denied/skipped UI behavior after a native
+cleanup failure; and restoration of the persisted notification preference.

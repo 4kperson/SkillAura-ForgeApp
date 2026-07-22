@@ -88,13 +88,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           .requestPermission();
       final saved = await _controller.setNotificationPreference(preference);
       if (!saved) return;
-      await widget.notificationPermissionService.synchronize(
+      final result = await widget.notificationPermissionService.synchronize(
         _controller.profile,
       );
-      if (preference == NotificationPreference.granted && mounted) {
+      if (!mounted) return;
+      if (preference == NotificationPreference.granted &&
+          result.remindersReady) {
         await _goTo(6);
+      } else if (preference == NotificationPreference.granted) {
+        setState(() {
+          _notificationActionError =
+              'Your choice was saved, but reminders could not be prepared. Please try once more.';
+        });
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      assert(() {
+        debugPrint('[notifications] onboarding permission flow failed: $error');
+        debugPrintStack(
+          label: '[notifications] onboarding permission flow stack trace',
+          stackTrace: stackTrace,
+        );
+        return true;
+      }());
       if (mounted) {
         setState(() {
           _notificationActionError =
@@ -120,15 +135,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         await widget.notificationPermissionService.synchronize(
           _controller.profile,
         );
-        if (mounted) await _goTo(6);
-      } catch (_) {
-        if (mounted) {
-          setState(() {
-            _notificationActionError =
-                'Your choice was saved, but existing reminders could not be cleared. Please try once more.';
-          });
-        }
+      } catch (error, stackTrace) {
+        assert(() {
+          debugPrint('[notifications] skipped reminder cleanup failed: $error');
+          debugPrintStack(
+            label: '[notifications] skipped reminder cleanup stack trace',
+            stackTrace: stackTrace,
+          );
+          return true;
+        }());
       }
+      if (mounted) await _goTo(6);
     }
     if (mounted) setState(() => _notificationActionInProgress = false);
   }

@@ -69,6 +69,12 @@ remain persisted in Supabase, so cold starts and future scheduling respect the
 user's decision. Android uses inexact daily alarms to avoid requesting exact
 alarm access.
 
+Notification startup is ordered: initialize time zones, initialize the native
+plugin with `@drawable/ic_stat_forge`, create the `daily_promises` channel, and
+then cancel or schedule Forge-owned IDs `4100` through `4102`. Cancelling when
+no reminders exist is a successful no-op. Cleanup failures are logged in debug
+builds but never block a denied or skipped onboarding choice.
+
 ## Mobile email confirmation
 
 Supabase Flutter listens for the confirmation callback and exchanges its code or

@@ -164,6 +164,108 @@ void main() {
     expect(find.text('Your first promise\nis waiting.'), findsOneWidget);
   });
 
+  testWidgets('denied choice stays calm when cleanup cannot run', (
+    tester,
+  ) async {
+    final repository = _MemoryOnboardingRepository(
+      const OnboardingProfile(currentStep: 5),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: OnboardingScreen(
+          repository: repository,
+          notificationPermissionService: _FakeNotificationService(
+            permission: NotificationPreference.denied,
+            syncResult: const NotificationSyncResult(
+              permissionState: NotificationPreference.denied,
+              initializationSucceeded: false,
+              schedulingState: ReminderSchedulingState.notRequested,
+              cancellationState: ReminderCancellationState.failed,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Keep me on track'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CHOICE RESPECTED'), findsOneWidget);
+    expect(find.textContaining('could not be prepared'), findsNothing);
+    expect(find.textContaining('could not be cleared'), findsNothing);
+  });
+
+  testWidgets('granted choice offers retry when scheduling fails', (
+    tester,
+  ) async {
+    final repository = _MemoryOnboardingRepository(
+      const OnboardingProfile(currentStep: 5),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: OnboardingScreen(
+          repository: repository,
+          notificationPermissionService: _FakeNotificationService(
+            permission: NotificationPreference.granted,
+            syncResult: const NotificationSyncResult(
+              permissionState: NotificationPreference.granted,
+              initializationSucceeded: true,
+              schedulingState: ReminderSchedulingState.failed,
+              cancellationState: ReminderCancellationState.nothingToCancel,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Keep me on track'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Support when\nintention gets busy.'), findsOneWidget);
+    expect(find.textContaining('could not be prepared'), findsOneWidget);
+  });
+
+  testWidgets('skipping advances even when cleanup cannot run', (tester) async {
+    var requested = false;
+    final repository = _MemoryOnboardingRepository(
+      const OnboardingProfile(currentStep: 5),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: OnboardingScreen(
+          repository: repository,
+          notificationPermissionService: _FakeNotificationService(
+            permission: NotificationPreference.denied,
+            onRequest: () => requested = true,
+            syncResult: const NotificationSyncResult(
+              permissionState: NotificationPreference.skipped,
+              initializationSucceeded: false,
+              schedulingState: ReminderSchedulingState.notRequested,
+              cancellationState: ReminderCancellationState.failed,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Not now'));
+    await tester.pumpAndSettle();
+
+    expect(
+      repository.value.notificationPreference,
+      NotificationPreference.skipped,
+    );
+    expect(requested, isFalse);
+    expect(find.text('Your first promise\nis waiting.'), findsOneWidget);
+    expect(find.textContaining('could not be cleared'), findsNothing);
+  });
+
   testWidgets('Start Day One persists completion before handoff', (
     tester,
   ) async {
@@ -186,10 +288,15 @@ void main() {
 }
 
 class _FakeNotificationService implements NotificationPermissionService {
-  _FakeNotificationService({required this.permission, this.onRequest});
+  _FakeNotificationService({
+    required this.permission,
+    this.onRequest,
+    this.syncResult,
+  });
 
   final NotificationPreference permission;
   final VoidCallback? onRequest;
+  final NotificationSyncResult? syncResult;
   final List<OnboardingProfile> synchronizedProfiles = [];
 
   @override
@@ -199,8 +306,18 @@ class _FakeNotificationService implements NotificationPermissionService {
   }
 
   @override
-  Future<void> synchronize(OnboardingProfile profile) async {
+  Future<NotificationSyncResult> synchronize(OnboardingProfile profile) async {
     synchronizedProfiles.add(profile);
+    return syncResult ??
+        NotificationSyncResult(
+          permissionState: profile.notificationPreference,
+          initializationSucceeded: true,
+          schedulingState:
+              profile.notificationPreference == NotificationPreference.granted
+              ? ReminderSchedulingState.scheduled
+              : ReminderSchedulingState.notRequested,
+          cancellationState: ReminderCancellationState.nothingToCancel,
+        );
   }
 }
 
