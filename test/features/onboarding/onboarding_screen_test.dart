@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forge_app/core/theme/app_theme.dart';
+import 'package:forge_app/features/onboarding/data/notification_permission_service.dart';
 import 'package:forge_app/features/onboarding/data/onboarding_repository.dart';
 import 'package:forge_app/features/onboarding/domain/onboarding_profile.dart';
 import 'package:forge_app/features/onboarding/presentation/onboarding_screen.dart';
@@ -14,7 +15,9 @@ void main() {
     home: OnboardingScreen(
       repository: repository,
       onCompleted: onCompleted,
-      notificationPermissionRequester: () async => true,
+      notificationPermissionService: _FakeNotificationService(
+        permission: NotificationPreference.granted,
+      ),
     ),
   );
 
@@ -97,10 +100,10 @@ void main() {
         theme: AppTheme.dark,
         home: OnboardingScreen(
           repository: repository,
-          notificationPermissionRequester: () async {
-            requested = true;
-            return true;
-          },
+          notificationPermissionService: _FakeNotificationService(
+            permission: NotificationPreference.granted,
+            onRequest: () => requested = true,
+          ),
         ),
       ),
     );
@@ -116,6 +119,10 @@ void main() {
 
     expect(requested, isTrue);
     expect(repository.value.notificationsEnabled, isTrue);
+    expect(
+      repository.value.notificationPreference,
+      NotificationPreference.granted,
+    );
     expect(find.text('Your first promise\nis waiting.'), findsOneWidget);
   });
 
@@ -130,7 +137,9 @@ void main() {
         theme: AppTheme.dark,
         home: OnboardingScreen(
           repository: repository,
-          notificationPermissionRequester: () async => false,
+          notificationPermissionService: _FakeNotificationService(
+            permission: NotificationPreference.denied,
+          ),
         ),
       ),
     );
@@ -174,6 +183,25 @@ void main() {
     expect(repository.value.isCompleted, isTrue);
     expect(completed, isTrue);
   });
+}
+
+class _FakeNotificationService implements NotificationPermissionService {
+  _FakeNotificationService({required this.permission, this.onRequest});
+
+  final NotificationPreference permission;
+  final VoidCallback? onRequest;
+  final List<OnboardingProfile> synchronizedProfiles = [];
+
+  @override
+  Future<NotificationPreference> requestPermission() async {
+    onRequest?.call();
+    return permission;
+  }
+
+  @override
+  Future<void> synchronize(OnboardingProfile profile) async {
+    synchronizedProfiles.add(profile);
+  }
 }
 
 class _MemoryOnboardingRepository implements OnboardingRepository {

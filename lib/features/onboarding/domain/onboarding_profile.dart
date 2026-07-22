@@ -28,6 +28,17 @@ class StarterHabit {
   final int effortMinutes;
   final StarterHabitKind kind;
 
+  int get scheduledMinutes {
+    final match = RegExp(r'^(\d{1,2}):(\d{2}) (AM|PM)').firstMatch(cue);
+    if (match == null) return 7 * 60;
+    var hour = int.parse(match.group(1)!);
+    final minute = int.parse(match.group(2)!);
+    final period = match.group(3)!;
+    if (period == 'AM' && hour == 12) hour = 0;
+    if (period == 'PM' && hour != 12) hour += 12;
+    return hour * 60 + minute;
+  }
+
   Map<String, dynamic> toJson() => {
     'source_key': kind.name,
     'title': title,
@@ -36,16 +47,9 @@ class StarterHabit {
     'scheduled_time': _cueTime,
   };
 
-  String get _cueTime {
-    final match = RegExp(r'^(\d{1,2}):(\d{2}) (AM|PM)').firstMatch(cue);
-    if (match == null) return '07:00:00';
-    var hour = int.parse(match.group(1)!);
-    final minute = match.group(2)!;
-    final period = match.group(3)!;
-    if (period == 'AM' && hour == 12) hour = 0;
-    if (period == 'PM' && hour != 12) hour += 12;
-    return '${hour.toString().padLeft(2, '0')}:$minute:00';
-  }
+  String get _cueTime =>
+      '${(scheduledMinutes ~/ 60).toString().padLeft(2, '0')}:'
+      '${(scheduledMinutes % 60).toString().padLeft(2, '0')}:00';
 }
 
 class OnboardingProfile {
@@ -57,6 +61,7 @@ class OnboardingProfile {
     this.currentStep = 0,
     this.notificationPreference = NotificationPreference.undecided,
     this.isCompleted = false,
+    this.timeZone = 'America/New_York',
   });
 
   final List<OnboardingGoal> goals;
@@ -66,6 +71,7 @@ class OnboardingProfile {
   final int currentStep;
   final NotificationPreference notificationPreference;
   final bool isCompleted;
+  final String timeZone;
 
   static const totalSteps = 7;
   static const maxGoals = 3;
@@ -123,6 +129,7 @@ class OnboardingProfile {
     int? currentStep,
     NotificationPreference? notificationPreference,
     bool? isCompleted,
+    String? timeZone,
   }) => OnboardingProfile(
     goals: goals ?? this.goals,
     disciplineLevel: disciplineLevel ?? this.disciplineLevel,
@@ -132,6 +139,7 @@ class OnboardingProfile {
     notificationPreference:
         notificationPreference ?? this.notificationPreference,
     isCompleted: isCompleted ?? this.isCompleted,
+    timeZone: timeZone ?? this.timeZone,
   );
 
   factory OnboardingProfile.fromJson(Map<String, dynamic> json) {
@@ -153,6 +161,7 @@ class OnboardingProfile {
       currentStep: (json['onboarding_step'] as num?)?.toInt() ?? 0,
       notificationPreference: _notificationPreferenceFromJson(json),
       isCompleted: json['onboarding_completed'] as bool? ?? false,
+      timeZone: json['timezone'] as String? ?? 'America/New_York',
     );
   }
 

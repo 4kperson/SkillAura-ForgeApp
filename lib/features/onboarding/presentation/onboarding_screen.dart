@@ -5,22 +5,22 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../data/notification_permission_service.dart';
 import '../data/onboarding_repository.dart';
 import '../domain/onboarding_profile.dart';
 import 'onboarding_controller.dart';
-
-typedef NotificationPermissionRequester = Future<bool> Function();
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({
     super.key,
     this.repository,
-    this.notificationPermissionRequester,
+    this.notificationPermissionService =
+        const DisabledNotificationPermissionService(),
     this.onCompleted,
   });
 
   final OnboardingRepository? repository;
-  final NotificationPermissionRequester? notificationPermissionRequester;
+  final NotificationPermissionService notificationPermissionService;
   final VoidCallback? onCompleted;
 
   @override
@@ -31,6 +31,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   late final OnboardingController _controller;
   late final PageController _pages;
   var _pageReady = false;
+  var _notificationActionInProgress = false;
+  String? _notificationActionError;
 
   @override
   void initState() {
@@ -76,20 +78,59 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _requestNotifications() async {
-    final allowed =
-        await widget.notificationPermissionRequester?.call() ?? false;
-    final preference = allowed
-        ? NotificationPreference.granted
-        : NotificationPreference.denied;
-    final saved = await _controller.setNotificationPreference(preference);
-    if (saved && allowed && mounted) await _goTo(6);
+    if (_notificationActionInProgress) return;
+    setState(() {
+      _notificationActionInProgress = true;
+      _notificationActionError = null;
+    });
+    try {
+      final preference = await widget.notificationPermissionService
+          .requestPermission();
+      final saved = await _controller.setNotificationPreference(preference);
+      if (!saved) return;
+      await widget.notificationPermissionService.synchronize(
+        _controller.profile,
+      );
+      if (preference == NotificationPreference.granted && mounted) {
+        await _goTo(6);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _notificationActionError =
+              'Your choice was saved, but reminders could not be prepared. Please try once more.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _notificationActionInProgress = false);
+    }
   }
 
   Future<void> _skipNotifications() async {
+    if (_notificationActionInProgress) return;
+    setState(() {
+      _notificationActionInProgress = true;
+      _notificationActionError = null;
+    });
     final saved = await _controller.setNotificationPreference(
       NotificationPreference.skipped,
     );
-    if (saved && mounted) await _goTo(6);
+    if (saved) {
+      try {
+        await widget.notificationPermissionService.synchronize(
+          _controller.profile,
+        );
+        if (mounted) await _goTo(6);
+      } catch (_) {
+        if (mounted) {
+          setState(() {
+            _notificationActionError =
+                'Your choice was saved, but existing reminders could not be cleared. Please try once more.';
+          });
+        }
+      }
+    }
+    if (mounted) setState(() => _notificationActionInProgress = false);
   }
 
   Future<void> _finish() async {
@@ -154,6 +195,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         onRequestNotifications: _requestNotifications,
         onSkipNotifications: _skipNotifications,
         onFinish: _finish,
+        notificationActionInProgress: _notificationActionInProgress,
+        notificationActionError: _notificationActionError,
       ),
     };
   }
@@ -167,6 +210,8 @@ class _Journey extends StatelessWidget {
     required this.onRequestNotifications,
     required this.onSkipNotifications,
     required this.onFinish,
+    required this.notificationActionInProgress,
+    required this.notificationActionError,
   });
 
   final OnboardingController controller;
@@ -175,6 +220,8 @@ class _Journey extends StatelessWidget {
   final VoidCallback onRequestNotifications;
   final VoidCallback onSkipNotifications;
   final VoidCallback onFinish;
+  final bool notificationActionInProgress;
+  final String? notificationActionError;
 
   @override
   Widget build(BuildContext context) {
@@ -203,6 +250,7 @@ class _Journey extends StatelessWidget {
               ),
               _NotificationStep(
                 preference: controller.profile.notificationPreference,
+                isBusy: notificationActionInProgress,
                 onAllow: onRequestNotifications,
                 onSkip: onSkipNotifications,
                 onContinueDenied: () => onNext(6),
@@ -212,6 +260,8 @@ class _Journey extends StatelessWidget {
           ),
         ),
         if (controller.errorMessage case final message?)
+          _SaveError(message: message),
+        if (notificationActionError case final message?)
           _SaveError(message: message),
       ],
     );
@@ -289,6 +339,7 @@ class _StepFrame extends StatelessWidget {
     this.secondary,
     this.onSecondary,
     this.centered = false,
+    this.secondaryEnabled = true,
   });
 
   final String eyebrow;
@@ -301,6 +352,7 @@ class _StepFrame extends StatelessWidget {
   final String? secondary;
   final VoidCallback? onSecondary;
   final bool centered;
+  final bool secondaryEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -386,7 +438,10 @@ class _StepFrame extends StatelessWidget {
             ),
             if (secondary != null) ...[
               const SizedBox(height: 8),
-              TextButton(onPressed: onSecondary, child: Text(secondary!)),
+              TextButton(
+                onPressed: secondaryEnabled ? onSecondary : null,
+                child: Text(secondary!),
+              ),
             ],
           ],
         ),
@@ -692,11 +747,13 @@ class _PlanStep extends StatelessWidget {
 class _NotificationStep extends StatelessWidget {
   const _NotificationStep({
     required this.preference,
+    required this.isBusy,
     required this.onAllow,
     required this.onSkip,
     required this.onContinueDenied,
   });
   final NotificationPreference preference;
+  final bool isBusy;
   final VoidCallback onAllow;
   final VoidCallback onSkip;
   final VoidCallback onContinueDenied;
@@ -710,6 +767,7 @@ class _NotificationStep extends StatelessWidget {
         body:
             'Without notification access, Forge will stay quiet outside the app. Your plan remains complete and you can enable reminders later.',
         primaryLabel: 'Continue without reminders',
+        primaryEnabled: !isBusy,
         onPrimary: onContinueDenied,
         content: const _NotificationTradeoff(),
       );
@@ -719,9 +777,11 @@ class _NotificationStep extends StatelessWidget {
       title: 'Support when\nintention gets busy.',
       body:
           "Forge can remind you at the moments you chose—never noise, never guilt, always in your control.",
-      primaryLabel: 'Keep me on track',
+      primaryLabel: isBusy ? 'Preparing reminders…' : 'Keep me on track',
+      primaryEnabled: !isBusy,
       onPrimary: onAllow,
       secondary: 'Not now',
+      secondaryEnabled: !isBusy,
       onSecondary: onSkip,
       content: Column(
         children: [

@@ -126,3 +126,19 @@ Status: complete locally on 2026-07-21.
 - Rebuilt Home around identity, next action, XP, levels, streaks, milestones,
   and the next achievement without a percentage dashboard.
 - Added the full onboarding → sign-out → same-account sign-in regression test.
+
+## Sprint 3 stabilization
+
+Status: complete locally on 2026-07-22.
+
+- Replaced boolean-only notification handling with explicit native permission
+  mapping and persisted granted, denied, and skipped states.
+- Added local daily scheduling for the personalized starter plan, cancellation
+  for non-granted states, reboot restoration on Android, and cold-start sync.
+- Exposed reminder state through the existing Morning profile query and added a
+  quiet Home acknowledgement when reminders are disabled.
+- Polished Morning loading and mission transitions and separated a missing plan
+  from a genuinely completed day.
+- Removed unused Riverpod, RevenueCat, and starter utility dependencies.
+- Added routing, restart, reminder-plan, denied-state, empty-state, and duplicate
+  XP-tap regression coverage.

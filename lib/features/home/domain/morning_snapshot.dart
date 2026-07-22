@@ -10,6 +10,7 @@ class MorningSnapshot {
     required this.longestStreak,
     required this.habits,
     required this.forDate,
+    this.notificationsEnabled = false,
   });
 
   final String displayName;
@@ -20,6 +21,7 @@ class MorningSnapshot {
   final int longestStreak;
   final List<Habit> habits;
   final DateTime forDate;
+  final bool notificationsEnabled;
 
   int get completedCount => habits.where((habit) => habit.isComplete).length;
   int get totalCount => habits.length;
@@ -64,6 +66,7 @@ class MorningSnapshot {
     int? currentStreak,
     int? longestStreak,
     List<Habit>? habits,
+    bool? notificationsEnabled,
   }) => MorningSnapshot(
     displayName: displayName,
     identityLabel: identityLabel,
@@ -73,6 +76,7 @@ class MorningSnapshot {
     longestStreak: longestStreak ?? this.longestStreak,
     habits: habits ?? this.habits,
     forDate: forDate,
+    notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
   );
 }
 

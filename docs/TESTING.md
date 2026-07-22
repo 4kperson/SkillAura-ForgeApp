@@ -30,3 +30,9 @@ The application test suite must cover this complete route lifecycle:
 
 Profile-load failures must remain on the recoverable splash state. They must
 never be converted into an onboarding-required state.
+
+Sprint 3 stabilization additionally verifies authenticated cold start, app
+restart, Home after onboarding and reauthentication, granted/denied permission
+mapping, personalized reminder times, the disabled-reminder Home state, the
+zero-mission recovery state, and duplicate completion taps. The server RPC's
+unique completion key remains the final protection against duplicate XP awards.

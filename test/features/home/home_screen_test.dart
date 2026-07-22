@@ -71,6 +71,46 @@ void main() {
     expect(find.text('Make today count.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('shows a quiet reminder state when notifications are disabled', (
+    tester,
+  ) async {
+    final snapshot = _snapshot().copyWith(notificationsEnabled: false);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: HomeScreen(
+          repository: _InteractiveMorningRepository(snapshot),
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Reminders are quiet · enable later in Settings'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('an empty plan is not presented as a completed day', (
+    tester,
+  ) async {
+    final snapshot = _snapshot().copyWith(habits: const []);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: HomeScreen(
+          repository: _InteractiveMorningRepository(snapshot),
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your plan is catching up.'), findsOneWidget);
+    expect(find.text('Every promise kept.'), findsNothing);
+  });
 }
 
 MorningSnapshot _snapshot() => MorningSnapshot(
@@ -91,6 +131,7 @@ MorningSnapshot _snapshot() => MorningSnapshot(
     ),
   ],
   forDate: DateTime(2026, 7, 21),
+  notificationsEnabled: true,
 );
 
 class _InteractiveMorningRepository implements MorningRepository {

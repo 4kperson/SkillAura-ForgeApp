@@ -16,7 +16,7 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
   static const _columns =
       'onboarding_goal, onboarding_goals, discipline_level, wake_time, sleep_time, '
       'onboarding_step, notifications_enabled, notification_permission_state, '
-      'onboarding_completed';
+      'onboarding_completed, timezone';
 
   String get _userId {
     final userId = _client.auth.currentUser?.id;

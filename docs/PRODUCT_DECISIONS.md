@@ -45,3 +45,15 @@ screen becomes calmer as the user moves through the day.
 Notification refusal is treated as an informed product choice. Forge names the
 quiet moments the user will not receive, stores denied separately from skipped,
 and continues without guilt or repeated pressure.
+
+## Notification consent and reminders
+
+- Native permission statuses are mapped explicitly; provisional and granted
+  access enable reminders, while denied, restricted, and permanently denied
+  access use the respectful denial path.
+- Reminder scheduling follows persisted consent, rather than merely visiting
+  the notification screen.
+- Forge schedules only the three personalized starter commitments and owns a
+  fixed reminder ID range, so non-granted consent cannot affect other apps.
+- Daily reminders use the device IANA time zone and inexact Android delivery,
+  preserving local wall-clock intent without an exact-alarm permission prompt.

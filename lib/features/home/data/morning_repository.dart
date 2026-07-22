@@ -36,7 +36,7 @@ class SupabaseMorningRepository implements MorningRepository {
           .from('profiles')
           .select(
             'display_name, onboarding_goals, discipline_level, total_xp, '
-            'current_streak, longest_streak, created_at',
+            'current_streak, longest_streak, notifications_enabled, created_at',
           )
           .eq('id', userId)
           .single(),
@@ -78,6 +78,7 @@ class SupabaseMorningRepository implements MorningRepository {
           Habit.fromJson(row, isComplete: completedIds.contains(row['id'])),
       ],
       forDate: today,
+      notificationsEnabled: profile['notifications_enabled'] == true,
     );
   }
 
@@ -144,6 +145,7 @@ class EmptyMorningRepository implements MorningRepository {
     longestStreak: 0,
     habits: const [],
     forDate: DateTime(date.year, date.month, date.day),
+    notificationsEnabled: false,
   );
 
   @override

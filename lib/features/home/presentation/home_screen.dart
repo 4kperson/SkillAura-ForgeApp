@@ -62,7 +62,17 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Stack(
           children: [
             const Positioned(top: -170, right: -130, child: _HomeGlow()),
-            SafeArea(child: _buildState()),
+            SafeArea(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: KeyedSubtree(
+                  key: ValueKey(_controller.status),
+                  child: _buildState(),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -116,40 +126,50 @@ class _MorningExperience extends StatelessWidget {
           _MorningHeader(name: snapshot.displayName, onSignOut: onSignOut),
           const SizedBox(height: 24),
           _IdentityBanner(identity: snapshot.identityLabel),
+          if (!snapshot.notificationsEnabled) ...[
+            const SizedBox(height: 10),
+            const _ReminderStatus(),
+          ],
           const SizedBox(height: 14),
           _ProgressHero(snapshot: snapshot),
           const SizedBox(height: 30),
           _MissionHeader(snapshot: snapshot),
           const SizedBox(height: 13),
-          AnimatedSwitcher(
+          AnimatedSize(
             duration: const Duration(milliseconds: 280),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            child: snapshot.remainingHabits.isEmpty
-                ? _DayCompleteCard(key: const ValueKey('complete'))
-                : Column(
-                    key: ValueKey(snapshot.remainingHabits.length),
-                    children: [
-                      for (
-                        var index = 0;
-                        index < snapshot.remainingHabits.length;
-                        index++
-                      ) ...[
-                        _MissionCard(
-                          habit: snapshot.remainingHabits[index],
-                          isNext: index == 0,
-                          isSaving: controller.isUpdating(
-                            snapshot.remainingHabits[index].id,
+            curve: Curves.easeOutCubic,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 280),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: snapshot.habits.isEmpty
+                  ? const _NoMissionsCard(key: ValueKey('empty'))
+                  : snapshot.remainingHabits.isEmpty
+                  ? _DayCompleteCard(key: const ValueKey('complete'))
+                  : Column(
+                      key: ValueKey(snapshot.remainingHabits.length),
+                      children: [
+                        for (
+                          var index = 0;
+                          index < snapshot.remainingHabits.length;
+                          index++
+                        ) ...[
+                          _MissionCard(
+                            habit: snapshot.remainingHabits[index],
+                            isNext: index == 0,
+                            isSaving: controller.isUpdating(
+                              snapshot.remainingHabits[index].id,
+                            ),
+                            onComplete: () => controller.toggleHabit(
+                              snapshot.remainingHabits[index].id,
+                            ),
                           ),
-                          onComplete: () => controller.toggleHabit(
-                            snapshot.remainingHabits[index].id,
-                          ),
-                        ),
-                        if (index < snapshot.remainingHabits.length - 1)
-                          const SizedBox(height: 11),
+                          if (index < snapshot.remainingHabits.length - 1)
+                            const SizedBox(height: 11),
+                        ],
                       ],
-                    ],
-                  ),
+                    ),
+            ),
           ),
           if (controller.errorMessage case final message?) ...[
             const SizedBox(height: 12),
@@ -270,6 +290,45 @@ class _IdentityBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ReminderStatus extends StatelessWidget {
+  const _ReminderStatus();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Reminders are off. They can be enabled later in Settings.',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .035),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: .065)),
+        ),
+        child: const Row(
+          children: [
+            Icon(
+              Icons.notifications_off_outlined,
+              color: AppColors.textSecondary,
+              size: 17,
+            ),
+            SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                'Reminders are quiet · enable later in Settings',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -859,6 +918,52 @@ class _DayCompleteCard extends StatelessWidget {
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoMissionsCard extends StatelessWidget {
+  const _NoMissionsCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .04),
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: Colors.white.withValues(alpha: .075)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.sync_rounded, color: AppColors.primaryBright, size: 28),
+          SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Your plan is catching up.',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Pull to refresh while Forge restores today’s mission.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    height: 1.4,
                   ),
                 ),
               ],

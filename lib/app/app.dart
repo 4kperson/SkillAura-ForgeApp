@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -21,6 +24,7 @@ class ForgeApp extends StatefulWidget {
     this.onboardingRepository,
     this.onboardingGateController,
     this.morningRepository,
+    this.notificationPermissionService,
     this.initialLocation = '/splash',
   });
 
@@ -28,6 +32,7 @@ class ForgeApp extends StatefulWidget {
   final OnboardingRepository? onboardingRepository;
   final OnboardingGateController? onboardingGateController;
   final MorningRepository? morningRepository;
+  final NotificationPermissionService? notificationPermissionService;
   final String initialLocation;
 
   @override
@@ -40,9 +45,11 @@ class _ForgeAppState extends State<ForgeApp> {
   late final OnboardingRepository _onboardingRepository;
   late final OnboardingGateController _onboardingGate;
   late final MorningRepository _morningRepository;
+  late final NotificationPermissionService _notificationPermissionService;
   late final bool _ownsOnboardingGate;
   late final Listenable _routerRefresh;
   late final GoRouter _router;
+  String? _notificationSyncFingerprint;
 
   @override
   void initState() {
@@ -69,8 +76,14 @@ class _ForgeAppState extends State<ForgeApp> {
         (AppEnv.hasSupabaseConfig
             ? SupabaseMorningRepository(Supabase.instance.client)
             : const EmptyMorningRepository());
+    _notificationPermissionService =
+        widget.notificationPermissionService ??
+        (AppEnv.hasSupabaseConfig
+            ? DeviceNotificationPermissionService()
+            : const DisabledNotificationPermissionService());
     _routerRefresh = Listenable.merge([_session, _onboardingGate]);
     _session.addListener(_synchronizeOnboardingGate);
+    _onboardingGate.addListener(_synchronizeNotifications);
     _synchronizeOnboardingGate();
     _router = GoRouter(
       initialLocation: widget.initialLocation,
@@ -116,8 +129,7 @@ class _ForgeAppState extends State<ForgeApp> {
           path: '/onboarding',
           builder: (_, _) => OnboardingScreen(
             repository: _onboardingRepository,
-            notificationPermissionRequester:
-                const DeviceNotificationPermissionService().request,
+            notificationPermissionService: _notificationPermissionService,
             onCompleted: () {
               _onboardingGate.markCompleted();
               _router.go('/home');
@@ -139,13 +151,43 @@ class _ForgeAppState extends State<ForgeApp> {
     if (_session.isAuthenticated) {
       _onboardingGate.resolve();
     } else if (_session.isReady) {
+      _notificationSyncFingerprint = null;
       _onboardingGate.reset();
     }
+  }
+
+  void _synchronizeNotifications() {
+    final profile = _onboardingGate.profile;
+    if (!_session.isAuthenticated ||
+        !_onboardingGate.isCompleted ||
+        profile == null ||
+        !profile.isCompleted) {
+      return;
+    }
+    final fingerprint = [
+      profile.notificationPreference.name,
+      profile.timeZone,
+      profile.wakeTimeMinutes,
+      profile.sleepTimeMinutes,
+      profile.disciplineLevel?.name,
+      ...profile.goals.map((goal) => goal.name),
+    ].join(':');
+    if (_notificationSyncFingerprint == fingerprint) return;
+    _notificationSyncFingerprint = fingerprint;
+    unawaited(
+      _notificationPermissionService.synchronize(profile).catchError((error) {
+        _notificationSyncFingerprint = null;
+        if (kDebugMode) {
+          debugPrint('Could not synchronize reminders: $error');
+        }
+      }),
+    );
   }
 
   @override
   void dispose() {
     _session.removeListener(_synchronizeOnboardingGate);
+    _onboardingGate.removeListener(_synchronizeNotifications);
     _router.dispose();
     if (_ownsOnboardingGate) _onboardingGate.dispose();
     if (_ownsSession) _session.dispose();

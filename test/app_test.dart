@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forge_app/app/app.dart';
 import 'package:forge_app/features/auth/presentation/session_controller.dart';
+import 'package:forge_app/features/onboarding/data/notification_permission_service.dart';
 import 'package:forge_app/features/onboarding/data/onboarding_repository.dart';
 import 'package:forge_app/features/onboarding/domain/onboarding_profile.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() {
   testWidgets('unauthenticated launch resolves to authentication', (
@@ -19,9 +19,7 @@ void main() {
       await source.dispose();
     });
 
-    await tester.pumpWidget(
-      ProviderScope(child: ForgeApp(sessionController: controller)),
-    );
+    await tester.pumpWidget(ForgeApp(sessionController: controller));
     await tester.pumpAndSettle();
 
     expect(find.text('Return to the\nwork that matters.'), findsOneWidget);
@@ -35,9 +33,7 @@ void main() {
       await source.dispose();
     });
 
-    await tester.pumpWidget(
-      ProviderScope(child: ForgeApp(sessionController: controller)),
-    );
+    await tester.pumpWidget(ForgeApp(sessionController: controller));
     await tester.pumpAndSettle();
 
     expect(find.text('Make today count.'), findsOneWidget);
@@ -54,12 +50,7 @@ void main() {
     });
 
     await tester.pumpWidget(
-      ProviderScope(
-        child: ForgeApp(
-          sessionController: controller,
-          initialLocation: '/auth',
-        ),
-      ),
+      ForgeApp(sessionController: controller, initialLocation: '/auth'),
     );
     await tester.pumpAndSettle();
 
@@ -77,9 +68,7 @@ void main() {
       await source.dispose();
     });
 
-    await tester.pumpWidget(
-      ProviderScope(child: ForgeApp(sessionController: controller)),
-    );
+    await tester.pumpWidget(ForgeApp(sessionController: controller));
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
@@ -99,12 +88,7 @@ void main() {
     });
 
     await tester.pumpWidget(
-      ProviderScope(
-        child: ForgeApp(
-          sessionController: controller,
-          initialLocation: '/home',
-        ),
-      ),
+      ForgeApp(sessionController: controller, initialLocation: '/home'),
     );
     await tester.pumpAndSettle();
 
@@ -120,9 +104,7 @@ void main() {
       await source.dispose();
     });
 
-    await tester.pumpWidget(
-      ProviderScope(child: ForgeApp(sessionController: controller)),
-    );
+    await tester.pumpWidget(ForgeApp(sessionController: controller));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Sign out'));
@@ -149,12 +131,7 @@ void main() {
     });
 
     await tester.pumpWidget(
-      ProviderScope(
-        child: ForgeApp(
-          sessionController: controller,
-          onboardingRepository: onboarding,
-        ),
-      ),
+      ForgeApp(sessionController: controller, onboardingRepository: onboarding),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -177,17 +154,85 @@ void main() {
     });
 
     await tester.pumpWidget(
-      ProviderScope(
-        child: ForgeApp(
-          sessionController: controller,
-          onboardingRepository: onboarding,
-        ),
-      ),
+      ForgeApp(sessionController: controller, onboardingRepository: onboarding),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('Make today count.'), findsOneWidget);
     expect(find.text('You already took\nthe hardest step.'), findsNothing);
+  });
+
+  testWidgets('cold start restores Home and synchronizes persisted reminders', (
+    tester,
+  ) async {
+    final source = _FakeSessionSource(signedIn: true);
+    final controller = SessionController(source);
+    final notifications = _FakeNotificationPermissionService();
+    final onboarding = _FakeOnboardingRepository(
+      const OnboardingProfile(
+        isCompleted: true,
+        notificationPreference: NotificationPreference.denied,
+      ),
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await source.dispose();
+    });
+
+    await tester.pumpWidget(
+      ForgeApp(
+        sessionController: controller,
+        onboardingRepository: onboarding,
+        notificationPermissionService: notifications,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Make today count.'), findsOneWidget);
+    expect(notifications.synchronizedProfiles, hasLength(1));
+    expect(
+      notifications.synchronizedProfiles.single.notificationPreference,
+      NotificationPreference.denied,
+    );
+  });
+
+  testWidgets('app restart restores an authenticated user directly to Home', (
+    tester,
+  ) async {
+    final source = _FakeSessionSource(signedIn: true);
+    final onboarding = _FakeOnboardingRepository(
+      const OnboardingProfile(isCompleted: true),
+    );
+    final firstController = SessionController(source);
+
+    await tester.pumpWidget(
+      ForgeApp(
+        sessionController: firstController,
+        onboardingRepository: onboarding,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Make today count.'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    firstController.dispose();
+
+    final restoredController = SessionController(source);
+    addTearDown(() async {
+      restoredController.dispose();
+      await source.dispose();
+    });
+    await tester.pumpWidget(
+      ForgeApp(
+        sessionController: restoredController,
+        onboardingRepository: onboarding,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Make today count.'), findsOneWidget);
+    expect(find.text('Return to the\nwork that matters.'), findsNothing);
   });
 
   testWidgets(
@@ -202,11 +247,9 @@ void main() {
       });
 
       await tester.pumpWidget(
-        ProviderScope(
-          child: ForgeApp(
-            sessionController: controller,
-            onboardingRepository: onboarding,
-          ),
+        ForgeApp(
+          sessionController: controller,
+          onboardingRepository: onboarding,
         ),
       );
       await tester.pump();
@@ -263,12 +306,7 @@ void main() {
     });
 
     await tester.pumpWidget(
-      ProviderScope(
-        child: ForgeApp(
-          sessionController: controller,
-          onboardingRepository: onboarding,
-        ),
-      ),
+      ForgeApp(sessionController: controller, onboardingRepository: onboarding),
     );
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -293,12 +331,7 @@ void main() {
     });
 
     await tester.pumpWidget(
-      ProviderScope(
-        child: ForgeApp(
-          sessionController: controller,
-          onboardingRepository: onboarding,
-        ),
-      ),
+      ForgeApp(sessionController: controller, onboardingRepository: onboarding),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -359,5 +392,19 @@ class _FakeOnboardingRepository implements OnboardingRepository {
   Future<void> complete(OnboardingProfile profile) async {
     completeCalls++;
     value = profile;
+  }
+}
+
+class _FakeNotificationPermissionService
+    implements NotificationPermissionService {
+  final List<OnboardingProfile> synchronizedProfiles = [];
+
+  @override
+  Future<NotificationPreference> requestPermission() async =>
+      NotificationPreference.denied;
+
+  @override
+  Future<void> synchronize(OnboardingProfile profile) async {
+    synchronizedProfiles.add(profile);
   }
 }

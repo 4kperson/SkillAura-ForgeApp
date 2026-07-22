@@ -2,10 +2,9 @@
 
 ## Principles
 - Feature-first folders to keep product areas independent.
-- Riverpod for testable state and dependency injection.
+- ChangeNotifier controllers behind testable repository and service interfaces.
 - GoRouter for explicit navigation.
 - Supabase behind repositories, never called directly from UI widgets.
-- RevenueCat is the subscription entitlement source of truth.
 - Firebase Crashlytics handles production crash reporting.
 
 ## Layers
@@ -49,6 +48,18 @@ updates the experience, persists through `set_habit_completion`, then reloads
 the server snapshot so XP and streak state remain authoritative. Completed
 missions remain in the domain snapshot for progress calculations but disappear
 from the action list.
+
+## Notification boundary
+
+`NotificationPermissionService` owns native permission interpretation and
+local reminder scheduling. Onboarding first persists the exact granted,
+denied, or skipped state to Supabase, then synchronizes device reminders. The
+application also synchronizes the persisted profile once after an authenticated
+cold start. Non-granted states always cancel Forge-owned reminder identifiers.
+
+The Morning snapshot reads `notifications_enabled` from the same profile query
+that supplies XP and streak data. This keeps Supabase authoritative without an
+extra Home request and lets the interface acknowledge when reminders are quiet.
 
 XP is modeled as cumulative progression through `LevelProgress`, including the
 current level floor, next level target, and remaining XP. UI percentages are a

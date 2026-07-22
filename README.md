@@ -4,13 +4,13 @@ Production-oriented starter for a discipline and habit-building mobile app targe
 
 ## Included
 - Flutter feature-first architecture
-- Riverpod state management
+- Testable ChangeNotifier presentation controllers
 - GoRouter navigation
 - Dark violet design system
-- Runnable onboarding and daily commitments prototype
+- Persistent personalized onboarding and real daily commitments
 - Supabase schema with row-level security
 - Firebase Crashlytics bootstrap hook
-- RevenueCat dependency placeholder
+- Permission-aware local daily reminders
 - Unit/widget tests
 - GitHub Actions CI
 - Architecture, decisions, and testing documentation
@@ -59,6 +59,15 @@ The product-stability release requires
 - keeps completion, XP, and streak changes server-owned;
 - restores missing habit tables, policies, trigger, and RPCs idempotently for
   projects whose earliest schema migration only partially completed.
+
+## Daily reminders
+
+Forge requests notification access only after its onboarding explanation. A
+granted choice schedules the three personalized starter commitments at their
+configured local times. Denied and skipped choices cancel Forge reminders and
+remain persisted in Supabase, so cold starts and future scheduling respect the
+user's decision. Android uses inexact daily alarms to avoid requesting exact
+alarm access.
 
 ## Mobile email confirmation
 

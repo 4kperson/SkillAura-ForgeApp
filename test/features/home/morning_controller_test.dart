@@ -42,6 +42,25 @@ void main() {
     expect(controller.snapshot?.totalXp, 200);
     expect(controller.errorMessage, isNotNull);
   });
+
+  test(
+    'ignores duplicate completion taps while the first save is active',
+    () async {
+      final repository = _MemoryMorningRepository(
+        _snapshot(),
+        saveDelay: const Duration(milliseconds: 20),
+      );
+      final controller = MorningController(repository);
+      await controller.initialize();
+
+      final first = controller.toggleHabit('focus');
+      final duplicate = controller.toggleHabit('focus');
+      await Future.wait([first, duplicate]);
+
+      expect(repository.completionCalls, 1);
+      expect(controller.snapshot?.totalXp, 240);
+    },
+  );
 }
 
 MorningSnapshot _snapshot() => MorningSnapshot(
@@ -56,12 +75,18 @@ MorningSnapshot _snapshot() => MorningSnapshot(
 );
 
 class _MemoryMorningRepository implements MorningRepository {
-  _MemoryMorningRepository(this.value, {this.shouldFail = false});
+  _MemoryMorningRepository(
+    this.value, {
+    this.shouldFail = false,
+    this.saveDelay,
+  });
 
   MorningSnapshot value;
   final bool shouldFail;
+  final Duration? saveDelay;
   String? lastHabitId;
   bool? lastCompletion;
+  int completionCalls = 0;
 
   @override
   Future<MorningSnapshot> load(DateTime date) async => value;
@@ -72,6 +97,8 @@ class _MemoryMorningRepository implements MorningRepository {
     required DateTime date,
     required bool isComplete,
   }) async {
+    completionCalls++;
+    if (saveDelay case final delay?) await Future<void>.delayed(delay);
     if (shouldFail) throw Exception('offline');
     lastHabitId = habitId;
     lastCompletion = isComplete;
